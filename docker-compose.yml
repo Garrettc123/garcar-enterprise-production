@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: garcar_postgres
+    environment:
+      POSTGRES_DB: revenue_aggregator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: garcar_redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  revenue-aggregator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.revenue-aggregator
+    container_name: garcar_revenue
+    environment:
+      DB_HOST: postgres
+      DB_NAME: revenue_aggregator
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      PAYPAL_EMAIL: ${PAYPAL_EMAIL}
+      ETH_WALLET: ${ETH_WALLET}
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  ai-agent-hub:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ai-agent-hub
+    container_name: garcar_agents
+    environment:
+      DB_HOST: postgres
+      DB_NAME: revenue_aggregator
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api-gateway
+    container_name: garcar_gateway
+    environment:
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 5000
+      NODE_ENV: production
+    depends_on:
+      - redis
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
