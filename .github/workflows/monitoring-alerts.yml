@@ -1,0 +1,52 @@
+name: 📊 Monitoring & Alerts
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: 🏥 System Health Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🔍 Check Revenue Aggregator
+        id: check_revenue
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://api.garcar-enterprise.com/revenue/health)
+          if [ $RESPONSE -eq 200 ]; then
+            echo "status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "status=unhealthy" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 🤖 Check AI Agent Hub
+        run: |
+          curl -f https://api.garcar-enterprise.com/agents/status || exit 1
+
+      - name: 🌐 Check API Gateway
+        run: |
+          curl -f https://api.garcar-enterprise.com/health || exit 1
+
+      - name: 📈 Check Prometheus Metrics
+        run: |
+          METRICS=$(curl -s https://prometheus.garcar-enterprise.com/api/v1/query?query=up)
+          echo "Metrics: $METRICS"
+
+      - name: 🚨 Alert on Failure
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.PAGERDUTY_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "routing_key": "${{ secrets.PAGERDUTY_KEY }}",
+              "event_action": "trigger",
+              "payload": {
+                "summary": "Garcar Enterprise Health Check Failed",
+                "severity": "critical",
+                "source": "github-actions",
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }
+            }'
