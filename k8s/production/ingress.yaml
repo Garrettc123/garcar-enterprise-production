@@ -1,0 +1,48 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: garcar-ingress
+  namespace: garcar-prod
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.garcar-enterprise.com
+    - revenue.garcar-enterprise.com
+    - agents.garcar-enterprise.com
+    secretName: garcar-tls
+  rules:
+  - host: api.garcar-enterprise.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway-service
+            port:
+              number: 5000
+  - host: revenue.garcar-enterprise.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: revenue-aggregator-service
+            port:
+              number: 8080
+  - host: agents.garcar-enterprise.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-agent-hub-service
+            port:
+              number: 8081
