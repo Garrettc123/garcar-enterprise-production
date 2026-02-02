@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: garcar-config
+  namespace: garcar-prod
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "revenue_aggregator"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  PAYPAL_EMAIL: "gwc2780@gmail.com"
+  ETH_WALLET: "0x5C92DCa91ac3251c17c94d69E93b8784fE8dcd30"
+  PAYOUT_THRESHOLD: "1000"
+  PAYPAL_PERCENTAGE: "70"
+  CRYPTO_PERCENTAGE: "30"

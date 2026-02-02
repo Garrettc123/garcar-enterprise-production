@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: garcar-prod
+  labels:
+    name: garcar-prod
+    environment: production
