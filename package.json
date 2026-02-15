@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/api-gateway/gateway.js",
     "dev": "nodemon src/api-gateway/gateway.js",
-    "test": "jest"
+    "test": "jest --forceExit"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -19,7 +19,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
   },
   "engines": {
     "node": ">=18.0.0"
