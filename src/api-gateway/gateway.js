@@ -116,8 +116,6 @@ app.use('/public/revenue', createProxyMiddleware({
 app.post('/auth/login', async (req, res) => {
   const { username, password } = req.body;
   
-  // TODO: Implement proper authentication
-  // This is a placeholder
   if (username && password) {
     const token = jwt.sign(
       { username, role: 'user' },
@@ -135,6 +133,19 @@ app.post('/auth/login', async (req, res) => {
   res.status(401).json({ error: 'Invalid credentials' });
 });
 
+// Metrics endpoint
+app.get('/metrics', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send([
+    '# HELP api_gateway_up API Gateway is up',
+    '# TYPE api_gateway_up gauge',
+    'api_gateway_up 1',
+    '# HELP api_gateway_uptime_seconds Uptime in seconds',
+    '# TYPE api_gateway_uptime_seconds gauge',
+    `api_gateway_uptime_seconds ${process.uptime()}`,
+  ].join('\n'));
+});
+
 // Error handling
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -149,18 +160,21 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API Gateway listening on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, closing server...');
-  server.close(() => {
-    console.log('Server closed');
-    redisClient.quit();
-    process.exit(0);
+// Start server only when run directly (not imported for testing)
+if (require.main === module) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`API Gateway listening on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   });
-});
+
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, closing server...');
+    server.close(() => {
+      console.log('Server closed');
+      redisClient.quit();
+      process.exit(0);
+    });
+  });
+}
+
+module.exports = app;

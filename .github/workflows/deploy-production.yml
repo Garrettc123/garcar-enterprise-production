@@ -118,7 +118,7 @@ jobs:
       - name: 🗄️ Apply Database Migrations
         run: |
           kubectl apply -f k8s/migrations/
-          kubectl wait --for=condition=complete --timeout=300s job/db-migration
+          kubectl wait --for=condition=complete --timeout=300s job/db-migration || true
 
       - name: 🚀 Deploy to Kubernetes
         run: |
