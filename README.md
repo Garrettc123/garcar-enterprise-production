@@ -45,7 +45,9 @@ Production-ready enterprise stack featuring:
 
 This master orchestrator deploys the complete revenue stack in under 10 minutes!
 
-See [DEPLOY.md](DEPLOY.md) for detailed deployment guide.
+**See [QUICKSTART.md](QUICKSTART.md) for 5-minute getting started guide.**
+
+**See [DEPLOY.md](DEPLOY.md) for detailed deployment guide.**
 
 ### Prerequisites
 - Docker & Docker Compose
