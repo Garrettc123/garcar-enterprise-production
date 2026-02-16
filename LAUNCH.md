@@ -91,6 +91,7 @@ REDIS_PASSWORD: <strong-password-min-16-chars>
 # Security
 JWT_SECRET: <random-string-min-32-chars>
 GRAFANA_PASSWORD: <admin-password>
+ALLOWED_ORIGINS: https://api.garcar-enterprise.com,https://garcar-enterprise.com,https://monitoring.garcar-enterprise.com
 
 # AWS (for backups)
 AWS_ACCESS_KEY_ID: <aws-key>
