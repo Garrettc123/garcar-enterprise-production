@@ -53,10 +53,16 @@ DB_PASSWORD          # PostgreSQL password
 REDIS_PASSWORD       # Redis password
 JWT_SECRET           # JWT signing secret (min 32 chars)
 GRAFANA_PASSWORD     # Grafana admin password
+ALLOWED_ORIGINS      # Comma-separated list of allowed CORS origins
 SLACK_WEBHOOK_URL    # Slack notifications (optional)
 PAGERDUTY_WEBHOOK    # PagerDuty alerts (optional)
 PAGERDUTY_KEY        # PagerDuty routing key (optional)
 ```
+
+**Note on CORS Configuration:**
+The `ALLOWED_ORIGINS` environment variable controls which domains can access the API. 
+For production, set this to your actual domain names (e.g., `https://api.garcar-enterprise.com,https://garcar-enterprise.com`). 
+For development, use `http://localhost:3000,http://localhost:5000`.
 
 ### 2️⃣ Auto-Deploy
 
@@ -127,6 +133,7 @@ kubectl logs -f deployment/revenue-aggregator -n garcar-prod
 - ✅ JWT authentication
 - ✅ Rate limiting (100 req/15min)
 - ✅ Helmet.js security headers
+- ✅ Restricted CORS (configurable allowed origins)
 - ✅ Automated vulnerability scanning
 - ✅ Secrets encrypted with Kubernetes
 - ✅ TLS/SSL with Let's Encrypt

@@ -14,3 +14,4 @@ data:
   PAYOUT_THRESHOLD: "1000"
   PAYPAL_PERCENTAGE: "70"
   CRYPTO_PERCENTAGE: "30"
+  ALLOWED_ORIGINS: "https://api.garcar-enterprise.com,https://garcar-enterprise.com,https://monitoring.garcar-enterprise.com"
