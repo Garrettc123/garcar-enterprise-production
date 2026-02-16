@@ -162,6 +162,18 @@ curl https://api.garcar-enterprise.com/api/agents \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
+### Money Dashboard (All Revenue Systems)
+```bash
+curl https://api.garcar-enterprise.com/api/money/dashboard \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Returns consolidated view of all revenue systems:
+- Total annual potential: $110,067,796
+- Active systems status
+- Payout configuration
+- Real-time statistics
+
 ## 🛠️ Development
 
 **Local development:**

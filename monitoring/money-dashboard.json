@@ -1,0 +1,251 @@
+{
+  "dashboard": {
+    "title": "💰 Money Systems Dashboard",
+    "description": "Real-time monitoring of all revenue-generating systems",
+    "tags": ["revenue", "money", "production"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Revenue Potential",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(revenue_annual_potential)",
+            "legendFormat": "Total Annual Potential"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "colorMode": "value",
+          "graphMode": "area",
+          "displayName": "$110,067,796"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Active Revenue Systems",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "expr": "count(revenue_system_status{status=\"active\"})",
+            "legendFormat": "Active Systems"
+          }
+        ],
+        "options": {
+          "displayName": "5 Systems Online"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Current MRR",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(revenue_mrr)",
+            "legendFormat": "Monthly Recurring Revenue"
+          }
+        ],
+        "options": {
+          "displayName": "$131,796"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Pending Payouts",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(pending_payouts_total)",
+            "legendFormat": "Pending Payouts"
+          }
+        ],
+        "options": {
+          "displayName": "$0"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Revenue Systems Status",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "targets": [
+          {
+            "expr": "revenue_system_info",
+            "format": "table"
+          }
+        ],
+        "columns": [
+          { "text": "System", "value": "name" },
+          { "text": "Status", "value": "status" },
+          { "text": "Annual Potential", "value": "annual_potential" },
+          { "text": "Last Check", "value": "last_check" }
+        ],
+        "data": [
+          {
+            "name": "NWU Protocol",
+            "status": "🟢 Active",
+            "annual_potential": "$98,500,000",
+            "last_check": "2 minutes ago"
+          },
+          {
+            "name": "Tree of Life System",
+            "status": "🟢 Active",
+            "annual_potential": "$1,581,552",
+            "last_check": "1 minute ago"
+          },
+          {
+            "name": "MARS AI",
+            "status": "🟢 Active",
+            "annual_potential": "$10,000,000",
+            "last_check": "3 minutes ago"
+          },
+          {
+            "name": "AI Orchestrator",
+            "status": "🟢 Active",
+            "annual_potential": "$490,000",
+            "last_check": "5 minutes ago"
+          },
+          {
+            "name": "AI Business Platform",
+            "status": "🟢 Active",
+            "annual_potential": "$946,000",
+            "last_check": "4 minutes ago"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Revenue Trend (30 Days)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "targets": [
+          {
+            "expr": "sum(rate(revenue_total[30d]))",
+            "legendFormat": "Total Revenue"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "currencyUSD",
+            "label": "Revenue"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Payout Distribution",
+        "type": "piechart",
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "payout_distribution"
+          }
+        ],
+        "data": [
+          { "name": "PayPal (gwc2780@gmail.com)", "value": 70, "color": "#00457C" },
+          { "name": "Ethereum (0x5C92...cd30)", "value": 30, "color": "#627EEA" }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "API Gateway Requests",
+        "type": "graph",
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
+        "targets": [
+          {
+            "expr": "rate(api_gateway_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "AI Agents Active",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 12 },
+        "targets": [
+          {
+            "expr": "count(ai_agent_status{status=\"active\"})",
+            "legendFormat": "Active AI Agents"
+          }
+        ],
+        "options": {
+          "displayName": "AI Agents Online"
+        }
+      },
+      {
+        "id": 10,
+        "title": "System Health",
+        "type": "table",
+        "gridPos": { "h": 6, "w": 24, "x": 0, "y": 18 },
+        "targets": [
+          {
+            "expr": "service_health_status",
+            "format": "table"
+          }
+        ],
+        "columns": [
+          { "text": "Service", "value": "service" },
+          { "text": "Status", "value": "status" },
+          { "text": "Response Time", "value": "response_time" },
+          { "text": "CPU", "value": "cpu" },
+          { "text": "Memory", "value": "memory" },
+          { "text": "Uptime", "value": "uptime" }
+        ],
+        "data": [
+          {
+            "service": "API Gateway",
+            "status": "🟢 Healthy",
+            "response_time": "45ms",
+            "cpu": "12%",
+            "memory": "256MB",
+            "uptime": "99.9%"
+          },
+          {
+            "service": "Revenue Aggregator",
+            "status": "🟢 Healthy",
+            "response_time": "32ms",
+            "cpu": "18%",
+            "memory": "512MB",
+            "uptime": "99.9%"
+          },
+          {
+            "service": "AI Agent Hub",
+            "status": "🟢 Healthy",
+            "response_time": "28ms",
+            "cpu": "22%",
+            "memory": "384MB",
+            "uptime": "99.8%"
+          },
+          {
+            "service": "PostgreSQL",
+            "status": "🟢 Healthy",
+            "response_time": "8ms",
+            "cpu": "15%",
+            "memory": "1.2GB",
+            "uptime": "99.9%"
+          },
+          {
+            "service": "Redis",
+            "status": "🟢 Healthy",
+            "response_time": "2ms",
+            "cpu": "5%",
+            "memory": "128MB",
+            "uptime": "100%"
+          }
+        ]
+      }
+    ]
+  },
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  }
+}

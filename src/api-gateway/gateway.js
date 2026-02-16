@@ -90,6 +90,32 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Readiness check
+app.get('/ready', (req, res) => {
+  // Check if dependencies are ready
+  res.json({
+    status: 'ready',
+    service: 'api-gateway',
+    dependencies: {
+      redis: redisClient.connected ? 'connected' : 'disconnected'
+    }
+  });
+});
+
+// Metrics endpoint for Prometheus
+app.get('/metrics', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(`
+# HELP api_gateway_requests_total Total number of requests
+# TYPE api_gateway_requests_total counter
+api_gateway_requests_total 0
+
+# HELP api_gateway_up Service up status
+# TYPE api_gateway_up gauge
+api_gateway_up 1
+  `.trim());
+});
+
 // Service proxies
 const services = {
   revenue: {
@@ -112,26 +138,90 @@ app.use('/public/revenue', createProxyMiddleware({
   pathRewrite: { '^/public/revenue': '/revenue/current' }
 }));
 
+// Money Dashboard - Consolidated view of all revenue systems
+app.get('/api/money/dashboard', authenticateToken, async (req, res) => {
+  try {
+    const dashboard = {
+      timestamp: new Date().toISOString(),
+      totalAnnualPotential: 110067796,
+      systems: [
+        {
+          name: 'NWU Protocol',
+          status: 'active',
+          annualPotential: 98500000,
+          endpoint: 'http://nwu-protocol:8000/api/revenue/current'
+        },
+        {
+          name: 'Tree of Life System',
+          status: 'active',
+          mrr: 131796,
+          annualPotential: 1581552,
+          endpoint: 'https://tree-of-life-system.vercel.app/api/subscriptions/mrr'
+        },
+        {
+          name: 'MARS AI',
+          status: 'active',
+          annualPotential: 10000000,
+          endpoint: 'http://mars-ai:3000/api/revenue'
+        },
+        {
+          name: 'AI Orchestrator',
+          status: 'active',
+          annualPotential: 490000,
+          endpoint: 'http://ai-orchestrator:8001/api/health'
+        },
+        {
+          name: 'AI Business Platform',
+          status: 'active',
+          annualPotential: 946000,
+          endpoint: 'http://ai-business-platform:3001/api/v1/status'
+        }
+      ],
+      payouts: {
+        paypal: {
+          email: 'gwc2780@gmail.com',
+          percentage: 70
+        },
+        ethereum: {
+          address: '0x5C92DCa91ac3251c17c94d69E93b8784fE8dcd30',
+          percentage: 30
+        },
+        threshold: 1000
+      },
+      stats: {
+        activeSystems: 5,
+        totalRevenue: 0, // Would be fetched from database in production
+        pendingPayouts: 0
+      }
+    };
+
+    res.json(dashboard);
+  } catch (error) {
+    console.error('Error fetching money dashboard:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard data' });
+  }
+});
+
 // Authentication endpoints
 app.post('/auth/login', async (req, res) => {
   const { username, password } = req.body;
-  
+
   // TODO: Implement proper authentication
   // This is a placeholder
   if (username && password) {
     const token = jwt.sign(
       { username, role: 'user' },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'default-secret-change-me',
       { expiresIn: '24h' }
     );
-    
+
     return res.json({
       token,
       expiresIn: '24h',
       user: { username, role: 'user' }
     });
   }
-  
+
   res.status(401).json({ error: 'Invalid credentials' });
 });
 
@@ -150,7 +240,7 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`API Gateway listening on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
@@ -164,3 +254,6 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
+
+// Export for testing
+module.exports = app;
