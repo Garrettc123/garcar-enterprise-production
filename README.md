@@ -37,6 +37,18 @@ Production-ready enterprise stack featuring:
 
 ## ⚡ Quick Start
 
+### 💰 Deploy Everything Money (One Command)
+
+```bash
+./scripts/deploy-everything-money.sh
+```
+
+This master orchestrator deploys the complete revenue stack in under 10 minutes!
+
+**See [QUICKSTART.md](QUICKSTART.md) for 5-minute getting started guide.**
+
+**See [DEPLOY.md](DEPLOY.md) for detailed deployment guide.**
+
 ### Prerequisites
 - Docker & Docker Compose
 - Kubernetes cluster (or minikube for local)
@@ -151,6 +163,18 @@ curl https://api.garcar-enterprise.com/api/revenue/current \
 curl https://api.garcar-enterprise.com/api/agents \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
+
+### Money Dashboard (All Revenue Systems)
+```bash
+curl https://api.garcar-enterprise.com/api/money/dashboard \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Returns consolidated view of all revenue systems:
+- Total annual potential: $110,067,796
+- Active systems status
+- Payout configuration
+- Real-time statistics
 
 ## 🛠️ Development
 
