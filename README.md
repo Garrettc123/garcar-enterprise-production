@@ -37,6 +37,16 @@ Production-ready enterprise stack featuring:
 
 ## ⚡ Quick Start
 
+### 💰 Deploy Everything Money (One Command)
+
+```bash
+./scripts/deploy-everything-money.sh
+```
+
+This master orchestrator deploys the complete revenue stack in under 10 minutes!
+
+See [DEPLOY.md](DEPLOY.md) for detailed deployment guide.
+
 ### Prerequisites
 - Docker & Docker Compose
 - Kubernetes cluster (or minikube for local)
