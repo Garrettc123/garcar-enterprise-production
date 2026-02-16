@@ -22,6 +22,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Get allowed origins from environment
+allowed_origins_str = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5000')
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(',')]
+
 app = FastAPI(
     title="Garcar AI Agent Hub",
     description="Distributed AI Agent Orchestration",
@@ -30,9 +34,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

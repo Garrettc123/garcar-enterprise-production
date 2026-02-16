@@ -47,6 +47,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       PAYPAL_EMAIL: ${PAYPAL_EMAIL}
       ETH_WALLET: ${ETH_WALLET}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5000}
     depends_on:
       - postgres
     ports:
@@ -63,6 +64,7 @@ services:
       DB_NAME: revenue_aggregator
       DB_USER: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5000}
     depends_on:
       - postgres
     ports:
@@ -80,6 +82,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       PORT: 5000
       NODE_ENV: production
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5000}
     depends_on:
       - redis
     ports:
