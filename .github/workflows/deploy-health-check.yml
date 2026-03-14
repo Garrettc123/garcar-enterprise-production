@@ -1,0 +1,78 @@
+name: 🚀 Deploy Health Check
+on:
+  workflow_run:
+    workflows: ['🚀 Deploy to Production']
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  post-deploy-check:
+    name: 🏥 Post-Deploy Validation
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: ⏳ Wait for Services to Stabilize
+        run: sleep 30
+
+      - name: 🌐 Check API Gateway
+        id: check_gateway
+        continue-on-error: true
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.garcar-enterprise.com/health)
+            echo "Attempt $i: HTTP $STATUS"
+            [ "$STATUS" = "200" ] && echo "gateway_ok=true" >> $GITHUB_OUTPUT && break
+            sleep 10
+          done
+
+      - name: 💰 Check Revenue Aggregator
+        id: check_revenue
+        continue-on-error: true
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.garcar-enterprise.com/revenue/health)
+          echo "Revenue Aggregator: HTTP $STATUS"
+          echo "revenue_status=$STATUS" >> $GITHUB_OUTPUT
+
+      - name: 🤖 Check AI Agent Network
+        id: check_agents
+        continue-on-error: true
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.garcar-enterprise.com/agents/status)
+          echo "AI Agent Network: HTTP $STATUS"
+          echo "agents_status=$STATUS" >> $GITHUB_OUTPUT
+
+      - name: 📊 Deployment Report
+        run: |
+          echo "======================================"
+          echo "  Garcar Enterprise Deploy Report"
+          echo "======================================"
+          echo "  Commit:     ${{ github.sha }}"
+          echo "  API Gateway:        ${{ steps.check_gateway.outputs.gateway_ok || 'unreachable' }}"
+          echo "  Revenue Aggregator: ${{ steps.check_revenue.outputs.revenue_status || 'unreachable' }}"
+          echo "  AI Agent Network:   ${{ steps.check_agents.outputs.agents_status || 'unreachable' }}"
+          echo "======================================"
+
+      - name: 🚨 Alert on Failed Deploy
+        if: |
+          failure() &&
+          secrets.PAGERDUTY_WEBHOOK != '' &&
+          secrets.PAGERDUTY_KEY != ''
+        run: |
+          curl -X POST "${{ secrets.PAGERDUTY_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "routing_key": "${{ secrets.PAGERDUTY_KEY }}",
+              "event_action": "trigger",
+              "payload": {
+                "summary": "Garcar Enterprise Deploy Health Check FAILED",
+                "severity": "critical",
+                "source": "github-actions-deploy",
+                "custom_details": {
+                  "commit": "${{ github.sha }}",
+                  "gateway": "${{ steps.check_gateway.outputs.gateway_ok }}",
+                  "revenue": "${{ steps.check_revenue.outputs.revenue_status }}",
+                  "agents": "${{ steps.check_agents.outputs.agents_status }}"
+                }
+              }
+            }'

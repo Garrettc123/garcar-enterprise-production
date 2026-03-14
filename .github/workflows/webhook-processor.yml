@@ -1,0 +1,81 @@
+name: 🔗 Webhook Processor
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Webhook source to process'
+        required: true
+        default: 'stripe'
+        type: choice
+        options:
+          - stripe
+          - twilio
+          - sendgrid
+          - custom
+      payload:
+        description: 'JSON payload (optional test payload)'
+        required: false
+        default: '{}'
+
+jobs:
+  process-webhook:
+    name: 🔗 Process Webhook Event
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install Dependencies
+        run: pip install stripe twilio sendgrid requests python-dotenv
+
+      - name: 🔗 Route Webhook
+        run: |
+          python - <<'EOF'
+          import json, os
+
+          source = '${{ github.event.inputs.source }}'
+          payload_str = '${{ github.event.inputs.payload }}'
+
+          try:
+            payload = json.loads(payload_str)
+          except:
+            payload = {}
+
+          print(f"📨 Webhook source: {source}")
+          print(f"📦 Payload keys: {list(payload.keys())}")
+
+          if source == 'stripe':
+            event_type = payload.get('type', 'unknown')
+            print(f"💳 Stripe event: {event_type}")
+            handlers = {
+              'payment_intent.succeeded': lambda p: print(f"  ✅ Payment succeeded: ${p.get('data',{}).get('object',{}).get('amount',0)/100:.2f}"),
+              'customer.subscription.created': lambda p: print(f"  ✅ New subscription created"),
+              'customer.subscription.deleted': lambda p: print(f"  ⚠️  Subscription cancelled"),
+              'invoice.payment_failed': lambda p: print(f"  ❌ Payment failed — retry needed"),
+            }
+            handler = handlers.get(event_type)
+            if handler:
+              handler(payload)
+            else:
+              print(f"  ℹ️  Unhandled event type: {event_type}")
+
+          elif source == 'twilio':
+            print(f"📱 Twilio SMS event received")
+            print(f"  From: {payload.get('From', 'unknown')}")
+            print(f"  Body: {payload.get('Body', '')}")
+
+          elif source == 'sendgrid':
+            print(f"📧 SendGrid event received")
+            for event in payload if isinstance(payload, list) else [payload]:
+              print(f"  {event.get('event','unknown')}: {event.get('email','unknown')}")
+
+          else:
+            print(f"ℹ️  Custom webhook — logging payload")
+            print(json.dumps(payload, indent=2))
+          EOF

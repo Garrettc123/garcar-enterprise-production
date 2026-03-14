@@ -1,0 +1,79 @@
+name: 💳 Stripe Connector
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to run'
+        required: true
+        default: 'sync'
+        type: choice
+        options:
+          - sync
+          - verify-webhooks
+          - reconcile
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  stripe-sync:
+    name: 💳 Stripe Data Sync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔐 Validate Stripe Secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.STRIPE_SECRET_KEY }}" ] && MISSING="$MISSING STRIPE_SECRET_KEY"
+          [ -z "${{ secrets.STRIPE_WEBHOOK_SECRET }}" ] && MISSING="$MISSING STRIPE_WEBHOOK_SECRET"
+          if [ -n "$MISSING" ]; then
+            echo "❌ Missing secrets:$MISSING"
+            echo "Add them at Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "✅ Stripe secrets present"
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install stripe requests python-dotenv
+
+      - name: 💰 Sync Revenue Data
+        run: |
+          python - <<'EOF'
+          import stripe, json, os
+          stripe.api_key = os.environ['STRIPE_SECRET_KEY']
+
+          # Pull last 24h of charges
+          charges = stripe.Charge.list(limit=100, created={'gte': int(__import__('time').time()) - 86400})
+          total = sum(c['amount'] for c in charges['data'] if c['paid']) / 100
+          print(f"✅ Revenue last 24h: ${total:.2f}")
+          print(f"   Transactions: {len(charges['data'])}")
+
+          # Pull active subscriptions
+          subs = stripe.Subscription.list(status='active', limit=100)
+          mrr = sum(s['plan']['amount'] for s in subs['data'] if s.get('plan')) / 100
+          print(f"✅ Active subscriptions: {len(subs['data'])}")
+          print(f"   MRR: ${mrr:.2f}")
+          EOF
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+
+      - name: 🔗 Verify Webhook Endpoints
+        run: |
+          python - <<'EOF'
+          import stripe, os
+          stripe.api_key = os.environ['STRIPE_SECRET_KEY']
+          endpoints = stripe.WebhookEndpoint.list()
+          for ep in endpoints['data']:
+            status = '✅' if ep['status'] == 'enabled' else '❌'
+            print(f"{status} {ep['url']} — {ep['status']}")
+          EOF
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}

@@ -1,0 +1,93 @@
+name: 🤖 AI Agent Network Connector
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: 'Target agent'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - revenue-agent
+          - outreach-agent
+          - data-agent
+  schedule:
+    - cron: '*/30 * * * *'
+
+jobs:
+  agent-sync:
+    name: 🤖 Agent Health & Sync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install Dependencies
+        run: pip install requests httpx python-dotenv openai
+
+      - name: 🏥 Ping Agent Endpoints
+        id: agent_health
+        continue-on-error: true
+        run: |
+          python - <<'EOF'
+          import requests, json
+
+          agents = {
+            'revenue-agent':   'https://api.garcar-enterprise.com/agents/revenue/health',
+            'outreach-agent':  'https://api.garcar-enterprise.com/agents/outreach/health',
+            'data-agent':      'https://api.garcar-enterprise.com/agents/data/health',
+          }
+
+          results = {}
+          for name, url in agents.items():
+            try:
+              r = requests.get(url, timeout=8)
+              results[name] = r.status_code
+              status = '✅' if r.status_code == 200 else '⚠️'
+              print(f"{status} {name}: HTTP {r.status_code}")
+            except Exception as e:
+              results[name] = 'unreachable'
+              print(f"❌ {name}: {e}")
+
+          healthy = sum(1 for v in results.values() if v == 200)
+          print(f"\n📊 {healthy}/{len(agents)} agents healthy")
+          EOF
+
+      - name: 🔄 Trigger Agent Orchestration
+        continue-on-error: true
+        run: |
+          python - <<'EOF'
+          import requests, os, json
+
+          api_key = os.environ.get('GARCAR_API_KEY', '')
+          if not api_key:
+            print("⚠️  GARCAR_API_KEY not set — skipping orchestration trigger")
+            exit(0)
+
+          payload = {
+            'action': 'sync',
+            'agents': '${{ github.event.inputs.agent || 'all' }}',
+            'triggered_by': 'github-actions',
+            'run_id': '${{ github.run_id }}'
+          }
+
+          try:
+            r = requests.post(
+              'https://api.garcar-enterprise.com/agents/orchestrate',
+              json=payload,
+              headers={'Authorization': f'Bearer {api_key}'},
+              timeout=15
+            )
+            print(f"✅ Orchestration triggered: {r.status_code}")
+          except Exception as e:
+            print(f"⚠️  Orchestration unavailable: {e}")
+          EOF
+        env:
+          GARCAR_API_KEY: ${{ secrets.GARCAR_API_KEY }}
