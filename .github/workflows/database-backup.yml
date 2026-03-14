@@ -1,51 +1,71 @@
 name: 💾 Database Backup
-
 on:
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
   backup:
     name: 📦 Backup Production Database
     runs-on: ubuntu-latest
-    
+    env:
+      BACKUP_TIMESTAMP: ${{ github.run_id }}_${{ github.run_number }}
+
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
 
+      - name: 🔐 Validate Required Secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.DB_HOST }}" ]               && MISSING="$MISSING DB_HOST"
+          [ -z "${{ secrets.DB_PASSWORD }}" ]           && MISSING="$MISSING DB_PASSWORD"
+          [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]     && MISSING="$MISSING AWS_ACCESS_KEY_ID"
+          [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "❌ Missing secrets:$MISSING"
+            echo "Go to Settings → Secrets and variables → Actions to add them."
+            exit 1
+          fi
+          echo "✅ All required secrets present"
+
       - name: 🗄️ Backup PostgreSQL Database
         run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          PGPASSWORD=${{ secrets.DB_PASSWORD }} pg_dump \
-            -h ${{ secrets.DB_HOST }} \
+          PGPASSWORD="${{ secrets.DB_PASSWORD }}" pg_dump \
+            -h "${{ secrets.DB_HOST }}" \
             -U postgres \
             -d revenue_aggregator \
             -F c \
-            -f backup_${TIMESTAMP}.dump
+            -f "backup_${BACKUP_TIMESTAMP}.dump"
+          echo "✅ Dump created: backup_${BACKUP_TIMESTAMP}.dump"
+          ls -lh "backup_${BACKUP_TIMESTAMP}.dump"
 
-      - name: ☁️ Upload to S3/Cloud Storage
+      - name: ☁️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: 📤 Sync Backup to S3
+      - name: 📤 Upload Backup to S3
         run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          aws s3 cp backup_${TIMESTAMP}.dump \
-            s3://garcar-backups/database/ \
+          aws s3 cp "backup_${BACKUP_TIMESTAMP}.dump" \
+            "s3://garcar-backups/database/backup_${BACKUP_TIMESTAMP}.dump" \
             --storage-class GLACIER
+          echo "✅ Uploaded to s3://garcar-backups/database/backup_${BACKUP_TIMESTAMP}.dump"
 
-      - name: 🧹 Clean Old Backups (Keep 30 days)
+      - name: 🧹 Clean Old Backups (Keep 30 Days)
         run: |
           CUTOFF_DATE=$(date -d '30 days ago' +%Y-%m-%d)
-          aws s3 ls s3://garcar-backups/database/ | \
-            while read -r line; do
-              BACKUP_DATE=$(echo $line | awk '{print $1}')
-              if [[ "$BACKUP_DATE" < "$CUTOFF_DATE" ]]; then
-                BACKUP_FILE=$(echo $line | awk '{print $4}')
-                aws s3 rm s3://garcar-backups/database/$BACKUP_FILE
-              fi
-            done
+          aws s3 ls s3://garcar-backups/database/ | while read -r line; do
+            BACKUP_DATE=$(echo "$line" | awk '{print $1}')
+            if [[ "$BACKUP_DATE" < "$CUTOFF_DATE" ]]; then
+              BACKUP_FILE=$(echo "$line" | awk '{print $4}')
+              [ -n "$BACKUP_FILE" ] && aws s3 rm "s3://garcar-backups/database/$BACKUP_FILE"
+            fi
+          done
+          echo "✅ Cleanup complete"
+
+      - name: 🧹 Remove Local Dump
+        if: always()
+        run: rm -f "backup_${BACKUP_TIMESTAMP}.dump"

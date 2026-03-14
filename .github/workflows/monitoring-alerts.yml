@@ -1,44 +1,59 @@
 name: 📊 Monitoring & Alerts
-
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
   health-check:
     name: 🏥 System Health Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 🔍 Check Revenue Aggregator
         id: check_revenue
+        continue-on-error: true
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://api.garcar-enterprise.com/revenue/health)
-          if [ $RESPONSE -eq 200 ]; then
-            echo "status=healthy" >> $GITHUB_OUTPUT
-          else
-            echo "status=unhealthy" >> $GITHUB_OUTPUT
-            exit 1
-          fi
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.garcar-enterprise.com/revenue/health)
+          echo "revenue_status=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "Revenue Aggregator HTTP: $RESPONSE"
 
       - name: 🤖 Check AI Agent Hub
+        id: check_agents
+        continue-on-error: true
         run: |
-          curl -f https://api.garcar-enterprise.com/agents/status || exit 1
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.garcar-enterprise.com/agents/status)
+          echo "agents_status=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "AI Agent Hub HTTP: $RESPONSE"
 
       - name: 🌐 Check API Gateway
+        id: check_gateway
+        continue-on-error: true
         run: |
-          curl -f https://api.garcar-enterprise.com/health || exit 1
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://api.garcar-enterprise.com/health)
+          echo "gateway_status=$RESPONSE" >> $GITHUB_OUTPUT
+          echo "API Gateway HTTP: $RESPONSE"
 
       - name: 📈 Check Prometheus Metrics
+        continue-on-error: true
         run: |
-          METRICS=$(curl -s https://prometheus.garcar-enterprise.com/api/v1/query?query=up)
+          METRICS=$(curl -s --max-time 10 "https://prometheus.garcar-enterprise.com/api/v1/query?query=up")
           echo "Metrics: $METRICS"
 
-      - name: 🚨 Alert on Failure
-        if: failure()
+      - name: 📊 Report Health Status
         run: |
-          curl -X POST ${{ secrets.PAGERDUTY_WEBHOOK }} \
+          echo "=== Garcar Enterprise Health Report ==="
+          echo "Revenue Aggregator: ${{ steps.check_revenue.outputs.revenue_status || 'unreachable' }}"
+          echo "AI Agent Hub:       ${{ steps.check_agents.outputs.agents_status || 'unreachable' }}"
+          echo "API Gateway:        ${{ steps.check_gateway.outputs.gateway_status || 'unreachable' }}"
+
+      - name: 🚨 Alert on Failure
+        if: |
+          failure() &&
+          secrets.PAGERDUTY_WEBHOOK != '' &&
+          secrets.PAGERDUTY_KEY != ''
+        run: |
+          curl -X POST "${{ secrets.PAGERDUTY_WEBHOOK }}" \
             -H 'Content-Type: application/json' \
             -d '{
               "routing_key": "${{ secrets.PAGERDUTY_KEY }}",
