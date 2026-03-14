@@ -60,7 +60,7 @@ echo "==========================================="
 echo ""
 echo "JWT_SECRET: $JWT_SECRET"
 echo "DB_PASSWORD: $DB_PASSWORD"
-REDIS_PASSWORD: $REDIS_PASSWORD"
+echo "REDIS_PASSWORD: $REDIS_PASSWORD"
 echo "GRAFANA_PASSWORD: $GRAFANA_PASSWORD"
 echo ""
 
