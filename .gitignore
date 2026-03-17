@@ -19,6 +19,10 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.venv/
+venv/
+.coverage
+htmlcov/
 
 # Node
 node_modules/
@@ -32,6 +36,9 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+.secrets.env
+.dns-config.env
+.domains.env
 
 # IDE
 .vscode/
@@ -54,3 +61,8 @@ coverage/
 
 # Docker
 *.pid
+docker-compose.override.yml
+
+# Backups
+*.backup
+*.dump

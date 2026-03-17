@@ -12,9 +12,11 @@ from typing import Dict, List
 import asyncpg
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 import uvicorn
 import uuid
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 logging.basicConfig(
     level=logging.INFO,
@@ -170,6 +172,27 @@ async def create_task(task: Task):
 @app.get("/performance")
 async def agent_performance():
     return await hub.get_agent_performance()
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "ai-agent-hub",
+        "version": "1.0.0"
+    }
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness check endpoint"""
+    if hub.pool is None:
+        raise HTTPException(status_code=503, detail="Database not ready")
+    return {"status": "ready"}
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 if __name__ == "__main__":
     uvicorn.run(

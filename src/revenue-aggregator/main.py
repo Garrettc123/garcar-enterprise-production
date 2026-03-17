@@ -13,8 +13,10 @@ import aiohttp
 import asyncpg
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 import uvicorn
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 # Configure logging
 logging.basicConfig(
@@ -213,7 +215,7 @@ async def get_revenue_history(days: int = 30):
                 DATE(snapshot_timestamp) as date,
                 SUM(current_revenue) as total_revenue
             FROM revenue_snapshots
-            WHERE snapshot_timestamp >= NOW() - INTERVAL '$1 days'
+            WHERE snapshot_timestamp >= NOW() - make_interval(days => $1)
             GROUP BY DATE(snapshot_timestamp)
             ORDER BY date DESC
             """,
@@ -225,6 +227,11 @@ async def get_revenue_history(days: int = 30):
 async def list_systems():
     """List all systems"""
     return await db.get_all_systems()
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 if __name__ == "__main__":
     uvicorn.run(
