@@ -18,8 +18,7 @@ jobs:
       - name: 🔐 Validate Required Secrets
         run: |
           MISSING=""
-          [ -z "${{ secrets.DB_HOST }}" ]               && MISSING="$MISSING DB_HOST"
-          [ -z "${{ secrets.DB_PASSWORD }}" ]           && MISSING="$MISSING DB_PASSWORD"
+          [ -z "${{ secrets.KUBECONFIG }}" ]            && MISSING="$MISSING KUBECONFIG"
           [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]     && MISSING="$MISSING AWS_ACCESS_KEY_ID"
           [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
           if [ -n "$MISSING" ]; then
@@ -29,14 +28,22 @@ jobs:
           fi
           echo "✅ All required secrets present"
 
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: ☸️ Setup Kubernetes Context
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+
       - name: 🗄️ Backup PostgreSQL Database
         run: |
-          PGPASSWORD="${{ secrets.DB_PASSWORD }}" pg_dump \
-            -h "${{ secrets.DB_HOST }}" \
-            -U postgres \
-            -d revenue_aggregator \
-            -F c \
-            -f "backup_${BACKUP_TIMESTAMP}.dump"
+          set -eo pipefail
+          # Run pg_dump inside the in-cluster postgres pod, streaming output locally.
+          # POSTGRES_PASSWORD is already injected into the pod via the garcar-secrets K8s secret.
+          kubectl exec -n garcar-prod deploy/postgres -- \
+            sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U postgres -d revenue_aggregator -F c' \
+            > "backup_${BACKUP_TIMESTAMP}.dump"
           echo "✅ Dump created: backup_${BACKUP_TIMESTAMP}.dump"
           ls -lh "backup_${BACKUP_TIMESTAMP}.dump"
 
