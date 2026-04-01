@@ -319,6 +319,10 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
           Churn Predictor
         </button>
+        <button class="dash-nav-item" onclick="showDashTab('nurture')" data-tab="nurture">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Nurture
+        </button>
         <button class="dash-nav-item" onclick="showDashTab('apikeys')" data-tab="apikeys">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78m0 0L15 10l4-1 2-4"/></svg>
           API Keys
@@ -442,6 +446,30 @@
             <button type="submit" class="btn btn-primary" id="ch-btn">Predict Churn</button>
           </form>
           <div id="ch-result" class="result-panel"></div>
+        </div>
+      </div>
+
+      <!-- Nurture Tab -->
+      <div class="dash-content" id="tab-nurture" style="display:none">
+        <div class="dash-section">
+          <h3>Email Nurture Pipeline</h3>
+          <div class="kpi-grid" id="nurture-kpis">
+            <div class="kpi-card"><div class="kpi-label">Enrolled Leads</div><div class="kpi-value" id="nk-enrolled">—</div></div>
+            <div class="kpi-card"><div class="kpi-label">Emails Sent</div><div class="kpi-value" id="nk-sent">—</div></div>
+            <div class="kpi-card"><div class="kpi-label">Pending</div><div class="kpi-value" id="nk-pending">—</div></div>
+            <div class="kpi-card"><div class="kpi-label">Delivery Rate</div><div class="kpi-value" id="nk-delivery">—</div></div>
+          </div>
+        </div>
+        <div class="dash-section" style="margin-top:var(--space-8)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)">
+            <h3>Drip Sequence</h3>
+            <button class="btn btn-primary btn-sm" onclick="processNurtureQueue()" id="nurture-process-btn">Process Queue</button>
+          </div>
+          <div id="nurture-sequence" class="nurture-sequence"></div>
+        </div>
+        <div class="dash-section" style="margin-top:var(--space-8)">
+          <h3>Enrolled Leads</h3>
+          <div id="nurture-leads" class="nurture-leads"></div>
         </div>
       </div>
 

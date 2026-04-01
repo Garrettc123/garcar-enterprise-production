@@ -172,7 +172,7 @@ async function startCheckout(plan) {
 
 // ── Dashboard ──
 function showDashTab(tab) {
-  const tabs = ['overview', 'dealdesk', 'seo', 'churn', 'apikeys'];
+  const tabs = ['overview', 'dealdesk', 'seo', 'churn', 'nurture', 'apikeys'];
   tabs.forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = (t === tab) ? '' : 'none';
@@ -182,8 +182,11 @@ function showDashTab(tab) {
     item.classList.toggle('active', item.dataset.tab === tab);
   });
   // Update title
-  const titles = { overview: 'Overview', dealdesk: 'AI Deal Desk', seo: 'SEO Content Factory', churn: 'Churn Predictor', apikeys: 'API Keys' };
+  const titles = { overview: 'Overview', dealdesk: 'AI Deal Desk', seo: 'SEO Content Factory', churn: 'Churn Predictor', nurture: 'Email Nurture', apikeys: 'API Keys' };
   document.getElementById('dash-title').textContent = titles[tab] || 'Dashboard';
+
+  // Load nurture data when switching to nurture tab
+  if (tab === 'nurture') loadNurtureData();
 }
 
 async function loadDashboard() {
@@ -361,6 +364,69 @@ function copyApiKey() {
     document.execCommand('copy');
     document.body.removeChild(ta);
     alert('API key copied');
+  }
+}
+
+// ── Nurture Dashboard ──
+async function loadNurtureData() {
+  try {
+    // Load pipeline KPIs
+    const pipeline = await api('/api/nurture/pipeline');
+    document.getElementById('nk-enrolled').textContent = pipeline.enrolled_leads;
+    document.getElementById('nk-sent').textContent = pipeline.sent;
+    document.getElementById('nk-pending').textContent = pipeline.pending;
+    document.getElementById('nk-delivery').textContent = pipeline.delivery_rate + '%';
+
+    // Load sequences
+    const sequences = await api('/api/nurture/sequences');
+    const seqEl = document.getElementById('nurture-sequence');
+    if (sequences.welcome_drip && sequences.welcome_drip.length > 0) {
+      seqEl.innerHTML = sequences.welcome_drip.map(step => {
+        const delayLabel = step.delay_hours === 0 ? 'Immediate' :
+          step.delay_hours < 24 ? step.delay_hours + 'h delay' :
+          Math.round(step.delay_hours / 24) + 'd delay';
+        return `<div class="nurture-step">
+          <div class="nurture-step-num ${step.is_active ? '' : 'pending'}">${step.step}</div>
+          <div><div class="nurture-step-subject">${step.subject}</div>
+          <div class="nurture-step-delay">${delayLabel}</div></div>
+          <span class="nurture-step-badge ${step.is_active ? 'active' : 'pending'}">${step.is_active ? 'Active' : 'Disabled'}</span>
+        </div>`;
+      }).join('');
+    } else {
+      seqEl.innerHTML = '<p style="color:var(--color-text-muted)">No sequences configured. Click "Process Queue" to seed default templates.</p>';
+    }
+
+    // Load leads
+    const leads = await api('/api/leads/');
+    const leadsEl = document.getElementById('nurture-leads');
+    if (leads.length > 0) {
+      leadsEl.innerHTML = leads.map(lead => `<div class="nurture-lead-row">
+        <div class="nurture-lead-email">${lead.name || lead.email}</div>
+        <div class="nurture-lead-progress">${lead.email}</div>
+        <span class="nurture-lead-status ${lead.status}">${lead.status}</span>
+      </div>`).join('');
+    } else {
+      leadsEl.innerHTML = '<p style="color:var(--color-text-muted)">No leads captured yet.</p>';
+    }
+  } catch (err) {
+    console.error('Nurture load error:', err);
+    // Not admin — show limited view
+    document.getElementById('nurture-sequence').innerHTML =
+      '<p style="color:var(--color-text-muted)">Admin access required to view nurture pipeline.</p>';
+  }
+}
+
+async function processNurtureQueue() {
+  const btn = document.getElementById('nurture-process-btn');
+  btn.classList.add('loading');
+  try {
+    const result = await api('/api/nurture/process', { method: 'POST' });
+    alert(`Queue processed: ${result.results.sent} sent, ${result.results.failed} failed, ${result.results.skipped} skipped`);
+    loadNurtureData();
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.classList.remove('loading');
   }
 }
 

@@ -405,3 +405,51 @@ select.input { appearance: auto; }
   animation: spin 0.6s linear infinite; margin-left: var(--space-2);
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════ NURTURE DASHBOARD ═══════════════ */
+.nurture-sequence {
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.nurture-step {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: var(--space-4);
+  padding: var(--space-4); background: var(--color-surface-raised);
+  border-radius: var(--radius-lg); border: 1px solid var(--color-border);
+}
+.nurture-step-num {
+  width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: var(--text-sm); background: var(--color-primary); color: white;
+}
+.nurture-step-num.sent { background: #22c55e; }
+.nurture-step-num.pending { background: var(--color-surface-alt); color: var(--color-text-muted); }
+.nurture-step-num.failed { background: #ef4444; }
+.nurture-step-subject {
+  font-weight: 500; font-size: var(--text-sm); color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nurture-step-delay {
+  font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px;
+}
+.nurture-step-badge {
+  font-size: var(--text-xs); padding: 4px 10px; border-radius: var(--radius-full);
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.nurture-step-badge.active { background: rgba(99,102,241,0.15); color: #818cf8; }
+.nurture-step-badge.sent { background: rgba(34,197,94,0.15); color: #4ade80; }
+.nurture-step-badge.pending { background: rgba(148,163,184,0.1); color: #94a3b8; }
+
+.nurture-leads {
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.nurture-lead-row {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4); background: var(--color-surface-raised);
+  border-radius: var(--radius-md); border: 1px solid var(--color-border);
+}
+.nurture-lead-email { font-weight: 500; font-size: var(--text-sm); }
+.nurture-lead-progress { font-size: var(--text-xs); color: var(--color-text-muted); }
+.nurture-lead-status {
+  font-size: var(--text-xs); padding: 3px 8px; border-radius: var(--radius-full); font-weight: 600;
+}
+.nurture-lead-status.new { background: rgba(99,102,241,0.15); color: #818cf8; }
+.nurture-lead-status.contacted { background: rgba(34,197,94,0.15); color: #4ade80; }
+.nurture-lead-status.converted { background: rgba(250,204,21,0.15); color: #fbbf24; }
