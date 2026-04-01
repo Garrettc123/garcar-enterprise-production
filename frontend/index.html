@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        Created with Perplexity Computer
+        https://www.perplexity.ai/computer
+-->
+<meta name="generator" content="Perplexity Computer">
+<meta name="author" content="Perplexity Computer">
+<meta property="og:see_also" content="https://www.perplexity.ai/computer">
+<link rel="author" href="https://www.perplexity.ai/computer">
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GARCAR Enterprise — AI Business Automation</title>
+<meta name="description" content="AI-powered Deal Desk, SEO Content Factory, and Churn Predictor. Close more deals, rank higher, retain customers. Built by Garrett Carroll.">
+
+<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&f[]=satoshi@300,400,500,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./base.css">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<!-- ═══════════════ NAVIGATION ═══════════════ -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo" onclick="showPage('landing')">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="GARCAR Enterprise">
+        <rect x="2" y="2" width="28" height="28" rx="6" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M9 16h14M16 9v14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      <span>GARCAR</span>
+    </a>
+    <div class="nav-links" id="nav-links">
+      <a href="#products" class="nav-link" data-page="landing">Products</a>
+      <a href="#pricing" class="nav-link" data-page="landing">Pricing</a>
+      <a href="#" class="nav-link" onclick="showPage('docs')">API Docs</a>
+    </div>
+    <div class="nav-actions">
+      <div id="nav-auth-guest">
+        <button class="btn btn-ghost" onclick="showPage('login')">Log in</button>
+        <button class="btn btn-primary" onclick="showPage('register')">Start Free</button>
+      </div>
+      <div id="nav-auth-user" style="display:none">
+        <button class="btn btn-ghost" onclick="showPage('dashboard')">Dashboard</button>
+        <button class="btn btn-ghost" onclick="logout()">Log out</button>
+      </div>
+    </div>
+    <button class="nav-toggle" onclick="toggleMobileNav()" aria-label="Toggle menu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════ LANDING PAGE ═══════════════ -->
+<main id="page-landing">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">AI-Powered Business Automation</div>
+      <h1 class="hero-title">Close more deals.<br>Rank higher.<br>Retain customers.</h1>
+      <p class="hero-sub">Three production AI systems that run your revenue operations on autopilot. Real APIs. Real results. No fluff.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary btn-lg" onclick="showPage('register')">Get Started Free</button>
+        <a href="#products" class="btn btn-outline btn-lg">See Products</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num" data-count="3">3</span><span class="stat-label">AI Products</span></div>
+        <div class="stat"><span class="stat-num">99.9%</span><span class="stat-label">Uptime SLA</span></div>
+        <div class="stat"><span class="stat-num">&lt;200ms</span><span class="stat-label">API Latency</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Products -->
+  <section class="section" id="products">
+    <div class="container">
+      <h2 class="section-title">Three Systems. One Platform.</h2>
+      <p class="section-sub">Each product works standalone or together. Access via dashboard or API.</p>
+      <div class="product-grid">
+
+        <div class="product-card">
+          <div class="product-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" stroke-width="2"/><path d="M10 20l4-8 4 6 4-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>AI Deal Desk</h3>
+          <p class="product-desc">Score every deal in your pipeline. Get ranked action items and close probability. Stop wasting time on dead leads.</p>
+          <ul class="product-features">
+            <li>ML-powered deal scoring (0-100)</li>
+            <li>Recommended next actions</li>
+            <li>Win probability + close timeline</li>
+            <li>Pipeline health alerts</li>
+          </ul>
+          <div class="product-price">From $49/mo</div>
+        </div>
+
+        <div class="product-card featured">
+          <div class="product-badge">Most Popular</div>
+          <div class="product-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="6" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/><path d="M4 12h24M10 6V4M22 6V4M10 18h6M10 22h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <h3>SEO Content Factory</h3>
+          <p class="product-desc">Generate SEO-optimized articles with keyword targeting, meta descriptions, and content outlines. 50-500 per month.</p>
+          <ul class="product-features">
+            <li>Keyword-targeted content generation</li>
+            <li>SEO score + readability analysis</li>
+            <li>Meta descriptions + slugs</li>
+            <li>Content outlines with word counts</li>
+          </ul>
+          <div class="product-price">From $49/mo</div>
+        </div>
+
+        <div class="product-card">
+          <div class="product-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="2"/><path d="M16 10v6l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 6l2-2M10 6L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Churn Predictor</h3>
+          <p class="product-desc">Identify at-risk customers 30 days before they cancel. Get retention playbooks and urgency scoring.</p>
+          <ul class="product-features">
+            <li>Churn risk scoring (0-100%)</li>
+            <li>Multi-factor risk analysis</li>
+            <li>Automated retention playbooks</li>
+            <li>Revenue impact projections</li>
+          </ul>
+          <div class="product-price">From $49/mo</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section section-alt" id="how">
+    <div class="container">
+      <h2 class="section-title">How It Works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Sign up and get your API key</h3>
+            <p>Create an account in 30 seconds. Instant API key. No credit card required for the free tier.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Call the API or use the dashboard</h3>
+            <p>Send deal data, content requests, or customer profiles. Get scored results with actionable insights in milliseconds.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Close more, rank higher, retain better</h3>
+            <p>Your sales team closes 3-5 more deals. Content ranks. Customers stay. Revenue grows on autopilot.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section" id="pricing">
+    <div class="container">
+      <h2 class="section-title">Simple Pricing</h2>
+      <p class="section-sub">All three products included in every plan. Scale as you grow.</p>
+      <div class="pricing-grid">
+
+        <div class="pricing-card">
+          <h3>Free</h3>
+          <div class="pricing-amount"><span class="price">$0</span><span class="period">/month</span></div>
+          <ul class="pricing-features">
+            <li>5 deal analyses/month</li>
+            <li>3 SEO articles/month</li>
+            <li>10 churn predictions/month</li>
+            <li>API access</li>
+            <li>Community support</li>
+          </ul>
+          <button class="btn btn-outline btn-full" onclick="showPage('register')">Get Started</button>
+        </div>
+
+        <div class="pricing-card pricing-featured">
+          <div class="pricing-badge">Best Value</div>
+          <h3>Starter</h3>
+          <div class="pricing-amount"><span class="price">$49</span><span class="period">/month</span></div>
+          <ul class="pricing-features">
+            <li>100 deal analyses/month</li>
+            <li>50 SEO articles/month</li>
+            <li>200 churn predictions/month</li>
+            <li>1,000 API calls/month</li>
+            <li>Email support</li>
+          </ul>
+          <button class="btn btn-primary btn-full" onclick="startCheckout('starter')">Subscribe</button>
+        </div>
+
+        <div class="pricing-card">
+          <h3>Professional</h3>
+          <div class="pricing-amount"><span class="price">$149</span><span class="period">/month</span></div>
+          <ul class="pricing-features">
+            <li>1,000 deal analyses/month</li>
+            <li>500 SEO articles/month</li>
+            <li>2,000 churn predictions/month</li>
+            <li>10,000 API calls/month</li>
+            <li>Priority support</li>
+            <li>Custom integrations</li>
+          </ul>
+          <button class="btn btn-primary btn-full" onclick="startCheckout('professional')">Subscribe</button>
+        </div>
+
+        <div class="pricing-card">
+          <h3>Enterprise</h3>
+          <div class="pricing-amount"><span class="price">$499</span><span class="period">/month</span></div>
+          <ul class="pricing-features">
+            <li>Unlimited everything</li>
+            <li>Dedicated support + Slack</li>
+            <li>Custom model training</li>
+            <li>White-label options</li>
+            <li>SLA guarantee (99.9%)</li>
+            <li>Onboarding call</li>
+          </ul>
+          <button class="btn btn-primary btn-full" onclick="startCheckout('enterprise')">Subscribe</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lead capture -->
+  <section class="section section-alt" id="cta">
+    <div class="container" style="text-align:center">
+      <h2 class="section-title">Ready to automate your revenue?</h2>
+      <p class="section-sub" style="margin:0 auto var(--space-8)">Drop your email. Get API access in 30 seconds.</p>
+      <form class="lead-form" onsubmit="captureLead(event)">
+        <input type="email" id="lead-email" placeholder="you@company.com" required class="input">
+        <input type="text" id="lead-name" placeholder="Your name" class="input">
+        <button type="submit" class="btn btn-primary">Get Free Access</button>
+      </form>
+      <p id="lead-result" class="lead-result"></p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══════════════ AUTH PAGES ═══════════════ -->
+<main id="page-login" style="display:none">
+  <section class="auth-section">
+    <div class="auth-card">
+      <h2>Log In</h2>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" class="input" required placeholder="you@company.com">
+        </div>
+        <div class="form-group">
+          <label for="login-pass">Password</label>
+          <input type="password" id="login-pass" class="input" required placeholder="Your password">
+        </div>
+        <p id="login-error" class="form-error"></p>
+        <button type="submit" class="btn btn-primary btn-full" id="login-btn">Log In</button>
+      </form>
+      <p class="auth-switch">No account? <a href="#" onclick="showPage('register')">Sign up free</a></p>
+    </div>
+  </section>
+</main>
+
+<main id="page-register" style="display:none">
+  <section class="auth-section">
+    <div class="auth-card">
+      <h2>Create Account</h2>
+      <form onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="reg-name">Full name</label>
+          <input type="text" id="reg-name" class="input" required placeholder="Garrett Carroll">
+        </div>
+        <div class="form-group">
+          <label for="reg-email">Email</label>
+          <input type="email" id="reg-email" class="input" required placeholder="you@company.com">
+        </div>
+        <div class="form-group">
+          <label for="reg-pass">Password</label>
+          <input type="password" id="reg-pass" class="input" required placeholder="Min 6 characters" minlength="6">
+        </div>
+        <p id="reg-error" class="form-error"></p>
+        <button type="submit" class="btn btn-primary btn-full" id="reg-btn">Create Account</button>
+      </form>
+      <p class="auth-switch">Already have an account? <a href="#" onclick="showPage('login')">Log in</a></p>
+    </div>
+  </section>
+</main>
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<main id="page-dashboard" style="display:none">
+  <div class="dash">
+    <aside class="dash-sidebar">
+      <div class="dash-sidebar-header">
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none"><rect x="2" y="2" width="28" height="28" rx="6" stroke="currentColor" stroke-width="2.5"/><path d="M9 16h14M16 9v14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="2"/></svg>
+        <span>GARCAR</span>
+      </div>
+      <nav class="dash-nav">
+        <button class="dash-nav-item active" onclick="showDashTab('overview')" data-tab="overview">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Overview
+        </button>
+        <button class="dash-nav-item" onclick="showDashTab('dealdesk')" data-tab="dealdesk">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20l4-8 4 6 4-10 4 6"/></svg>
+          Deal Desk
+        </button>
+        <button class="dash-nav-item" onclick="showDashTab('seo')" data-tab="seo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M8 5V3M16 5V3"/></svg>
+          SEO Factory
+        </button>
+        <button class="dash-nav-item" onclick="showDashTab('churn')" data-tab="churn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          Churn Predictor
+        </button>
+        <button class="dash-nav-item" onclick="showDashTab('apikeys')" data-tab="apikeys">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78m0 0L15 10l4-1 2-4"/></svg>
+          API Keys
+        </button>
+      </nav>
+      <div class="dash-plan" id="dash-plan-info">
+        <div class="dash-plan-name">Free Plan</div>
+        <button class="btn btn-primary btn-sm" onclick="showPage('landing');location.hash='pricing'">Upgrade</button>
+      </div>
+    </aside>
+
+    <div class="dash-main">
+      <header class="dash-header">
+        <h1 id="dash-title">Overview</h1>
+        <div class="dash-user">
+          <span id="dash-user-name">User</span>
+          <button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>
+        </div>
+      </header>
+
+      <!-- Overview Tab -->
+      <div class="dash-content" id="tab-overview">
+        <div class="kpi-grid">
+          <div class="kpi-card"><div class="kpi-label">Plan</div><div class="kpi-value" id="kpi-plan">Free</div></div>
+          <div class="kpi-card"><div class="kpi-label">Deal Analyses</div><div class="kpi-value" id="kpi-deals">0 / 5</div></div>
+          <div class="kpi-card"><div class="kpi-label">SEO Articles</div><div class="kpi-value" id="kpi-seo">0 / 3</div></div>
+          <div class="kpi-card"><div class="kpi-label">Churn Predictions</div><div class="kpi-value" id="kpi-churn">0 / 10</div></div>
+        </div>
+        <div class="dash-section">
+          <h3>Quick Start</h3>
+          <div class="quickstart-grid">
+            <button class="quickstart-card" onclick="showDashTab('dealdesk')">
+              <span class="qs-icon">&#9733;</span>
+              <span>Score a Deal</span>
+            </button>
+            <button class="quickstart-card" onclick="showDashTab('seo')">
+              <span class="qs-icon">&#9998;</span>
+              <span>Generate Content</span>
+            </button>
+            <button class="quickstart-card" onclick="showDashTab('churn')">
+              <span class="qs-icon">&#9200;</span>
+              <span>Predict Churn</span>
+            </button>
+            <button class="quickstart-card" onclick="showDashTab('apikeys')">
+              <span class="qs-icon">&#128273;</span>
+              <span>View API Key</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deal Desk Tab -->
+      <div class="dash-content" id="tab-dealdesk" style="display:none">
+        <div class="dash-section">
+          <h3>Analyze a Deal</h3>
+          <form onsubmit="analyzeDeal(event)" class="product-form">
+            <div class="form-row">
+              <div class="form-group"><label>Company Name</label><input type="text" id="dd-company" class="input" required placeholder="Acme Corp"></div>
+              <div class="form-group"><label>Deal Size ($)</label><input type="number" id="dd-size" class="input" placeholder="50000"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Stage</label>
+                <select id="dd-stage" class="input">
+                  <option value="discovery">Discovery</option>
+                  <option value="qualification">Qualification</option>
+                  <option value="proposal" selected>Proposal</option>
+                  <option value="negotiation">Negotiation</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Notes</label><input type="text" id="dd-notes" class="input" placeholder="Optional notes"></div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="dd-btn">Analyze Deal</button>
+          </form>
+          <div id="dd-result" class="result-panel"></div>
+        </div>
+      </div>
+
+      <!-- SEO Factory Tab -->
+      <div class="dash-content" id="tab-seo" style="display:none">
+        <div class="dash-section">
+          <h3>Generate SEO Content</h3>
+          <form onsubmit="generateSEO(event)" class="product-form">
+            <div class="form-row">
+              <div class="form-group"><label>Topic</label><input type="text" id="seo-topic" class="input" required placeholder="AI Automation for Small Business"></div>
+              <div class="form-group"><label>Keywords (comma-separated)</label><input type="text" id="seo-keywords" class="input" placeholder="ai automation, business automation"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Tone</label>
+                <select id="seo-tone" class="input">
+                  <option value="professional">Professional</option>
+                  <option value="casual">Casual</option>
+                  <option value="authoritative">Authoritative</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Word Count</label><input type="number" id="seo-words" class="input" value="800" placeholder="800"></div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="seo-btn">Generate Content</button>
+          </form>
+          <div id="seo-result" class="result-panel"></div>
+        </div>
+      </div>
+
+      <!-- Churn Predictor Tab -->
+      <div class="dash-content" id="tab-churn" style="display:none">
+        <div class="dash-section">
+          <h3>Predict Customer Churn</h3>
+          <form onsubmit="predictChurn(event)" class="product-form">
+            <div class="form-row">
+              <div class="form-group"><label>Customer ID</label><input type="text" id="ch-id" class="input" required placeholder="cust_001"></div>
+              <div class="form-group"><label>Monthly Spend ($)</label><input type="number" id="ch-spend" class="input" placeholder="149"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Days Since Last Login</label><input type="number" id="ch-days" class="input" placeholder="7"></div>
+              <div class="form-group"><label>Support Tickets (last 30d)</label><input type="number" id="ch-tickets" class="input" placeholder="2"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Feature Usage (%)</label><input type="number" id="ch-usage" class="input" placeholder="65" min="0" max="100"></div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="ch-btn">Predict Churn</button>
+          </form>
+          <div id="ch-result" class="result-panel"></div>
+        </div>
+      </div>
+
+      <!-- API Keys Tab -->
+      <div class="dash-content" id="tab-apikeys" style="display:none">
+        <div class="dash-section">
+          <h3>Your API Key</h3>
+          <p style="color:var(--color-text-muted);margin-bottom:var(--space-4)">Use this key in the <code>X-API-Key</code> header for programmatic access.</p>
+          <div class="api-key-box">
+            <code id="api-key-display">Loading...</code>
+            <button class="btn btn-ghost btn-sm" onclick="copyApiKey()">Copy</button>
+          </div>
+          <div class="dash-section" style="margin-top:var(--space-8)">
+            <h3>Example Request</h3>
+            <pre class="code-block"><code>curl -X POST https://api.garcar.ai/api/products/deal-desk/analyze \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"company_name":"Acme Corp","deal_size":50000,"stage":"proposal"}'</code></pre>
+          </div>
+          <div class="dash-section" style="margin-top:var(--space-8)">
+            <h3>Endpoints</h3>
+            <table class="endpoint-table">
+              <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><span class="method post">POST</span></td><td>/api/products/deal-desk/analyze</td><td>Score a deal</td></tr>
+                <tr><td><span class="method post">POST</span></td><td>/api/products/seo-factory/generate</td><td>Generate SEO content</td></tr>
+                <tr><td><span class="method post">POST</span></td><td>/api/products/churn-predictor/predict</td><td>Predict churn risk</td></tr>
+                <tr><td><span class="method get">GET</span></td><td>/api/products/usage</td><td>Check usage limits</td></tr>
+                <tr><td><span class="method get">GET</span></td><td>/api/payments/plans</td><td>View pricing plans</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════ DOCS PAGE ═══════════════ -->
+<main id="page-docs" style="display:none">
+  <section class="section" style="padding-top:calc(var(--space-20) + 64px)">
+    <div class="container" style="max-width:800px">
+      <h2 class="section-title" style="text-align:left">API Documentation</h2>
+      <p>Full interactive docs are available at <code>/docs</code> on the backend. Below is a quick reference.</p>
+      <div class="dash-section" style="margin-top:var(--space-8)">
+        <h3>Authentication</h3>
+        <p style="margin:var(--space-2) 0 var(--space-4)">All product endpoints require either a Bearer token (from login) or an API key header.</p>
+        <pre class="code-block"><code># Bearer token
+curl -H "Authorization: Bearer YOUR_TOKEN" ...
+
+# API key
+curl -H "X-API-Key: YOUR_API_KEY" ...</code></pre>
+      </div>
+      <div class="dash-section" style="margin-top:var(--space-8)">
+        <h3>Base URL</h3>
+        <pre class="code-block"><code id="docs-base-url">http://localhost:8000</code></pre>
+      </div>
+      <div class="dash-section" style="margin-top:var(--space-8)">
+        <h3>Registration</h3>
+        <pre class="code-block"><code>POST /api/auth/register
+{
+  "email": "you@company.com",
+  "password": "your-password",
+  "name": "Your Name"
+}
+
+Returns: { "access_token": "...", "user": { "api_key": "gce_..." } }</code></pre>
+      </div>
+      <div class="dash-section" style="margin-top:var(--space-8)">
+        <h3>Deal Desk — Analyze</h3>
+        <pre class="code-block"><code>POST /api/products/deal-desk/analyze
+{
+  "company_name": "Acme Corp",
+  "deal_size": 50000,
+  "stage": "proposal"
+}
+
+Returns: { "score": 78, "grade": "B", "recommended_actions": [...] }</code></pre>
+      </div>
+      <div class="dash-section" style="margin-top:var(--space-8)">
+        <h3>SEO Factory — Generate</h3>
+        <pre class="code-block"><code>POST /api/products/seo-factory/generate
+{
+  "topic": "AI Automation for Small Business",
+  "keywords": ["ai automation"],
+  "tone": "professional",
+  "word_count": 800
+}
+
+Returns: { "content": { "title": "...", "outline": [...], "seo_score": 92 } }</code></pre>
+      </div>
+      <div class="dash-section" style="margin-top:var(--space-8)">
+        <h3>Churn Predictor — Predict</h3>
+        <pre class="code-block"><code>POST /api/products/churn-predictor/predict
+{
+  "customer_id": "cust_001",
+  "monthly_spend": 149,
+  "days_since_login": 21,
+  "support_tickets": 5,
+  "feature_usage_pct": 15
+}
+
+Returns: { "churn_risk_pct": 72.3, "risk_level": "critical", "recommended_actions": [...] }</code></pre>
+      </div>
+      <p style="margin-top:var(--space-8)"><a href="#" onclick="showPage('register')" style="color:var(--color-primary)">Sign up to get your API key</a></p>
+    </div>
+  </section>
+</main>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="footer" id="main-footer">
+  <div class="container footer-inner">
+    <p>&copy; 2026 Garrett Carroll — GARCAR Enterprise — Fort Worth, TX</p>
+    <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer" class="footer-attribution">Created with Perplexity Computer</a>
+  </div>
+</footer>
+
+<script src="./app.js"></script>
+</body>
+</html>
