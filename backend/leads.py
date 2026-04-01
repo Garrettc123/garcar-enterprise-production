@@ -10,6 +10,7 @@ import logging
 from database import get_db
 from models import Lead, User
 from auth import get_admin_user
+from nurture import seed_email_templates, enroll_lead_in_sequence
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/leads", tags=["leads"])
@@ -55,6 +56,15 @@ def capture_lead(req: LeadCaptureRequest, db: Session = Depends(get_db)):
     db.refresh(lead)
 
     logger.info(f"New lead captured: {lead.email} from {lead.source}")
+
+    # Auto-enroll in welcome drip sequence
+    try:
+        seed_email_templates(db)
+        enroll_lead_in_sequence(lead, "welcome_drip", db)
+        logger.info(f"Lead {lead.email} auto-enrolled in welcome_drip")
+    except Exception as e:
+        logger.error(f"Failed to auto-enroll lead in nurture: {e}")
+
     return lead
 
 

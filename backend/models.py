@@ -75,3 +75,39 @@ class Lead(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     converted_at = Column(DateTime, nullable=True)
+
+    nurture_steps = relationship("NurtureStep", back_populates="lead")
+
+
+class EmailTemplate(Base):
+    __tablename__ = "email_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sequence_name = Column(String(100), nullable=False)  # e.g. "welcome_drip"
+    step_number = Column(Integer, nullable=False)  # 1, 2, 3...
+    subject = Column(String(500), nullable=False)
+    body_html = Column(Text, nullable=False)
+    body_text = Column(Text, nullable=False)
+    delay_hours = Column(Integer, default=0)  # hours after previous step
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class NurtureStep(Base):
+    __tablename__ = "nurture_steps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lead_id = Column(Integer, ForeignKey("leads.id"), nullable=False)
+    template_id = Column(Integer, ForeignKey("email_templates.id"), nullable=False)
+    sequence_name = Column(String(100), nullable=False)
+    step_number = Column(Integer, nullable=False)
+    status = Column(String(50), default="pending")  # pending | sent | failed | skipped
+    scheduled_at = Column(DateTime, nullable=False)
+    sent_at = Column(DateTime, nullable=True)
+    opened_at = Column(DateTime, nullable=True)
+    clicked_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    lead = relationship("Lead", back_populates="nurture_steps")
+    template = relationship("EmailTemplate")

@@ -60,6 +60,7 @@ from payments import router as payments_router, webhook_router
 from leads import router as leads_router
 from products import router as products_router
 from admin import router as admin_router
+from nurture import router as nurture_router
 
 app.include_router(auth_router)
 app.include_router(payments_router)
@@ -67,6 +68,7 @@ app.include_router(webhook_router)
 app.include_router(leads_router)
 app.include_router(products_router)
 app.include_router(admin_router)
+app.include_router(nurture_router)
 
 
 # --- Root & Health ---
@@ -83,6 +85,7 @@ def root():
             "products": "/api/products",
             "leads": "/api/leads",
             "admin": "/api/admin",
+            "nurture": "/api/nurture",
             "webhooks": "/api/webhooks/stripe",
         },
     }
