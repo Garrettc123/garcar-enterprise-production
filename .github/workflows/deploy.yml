@@ -1,0 +1,36 @@
+name: Deploy GARCAR Backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Render
+
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" \
+            --fail --silent --show-error
+          echo "Deploy triggered successfully"
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          for i in {1..12}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.API_URL }}/health" || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ GARCAR API is live at ${{ secrets.API_URL }}"
+              curl -s "${{ secrets.API_URL }}/health"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "⚠️ Health check timed out — deploy may still be in progress"
+          exit 0

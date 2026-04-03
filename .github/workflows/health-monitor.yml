@@ -1,0 +1,23 @@
+name: API Health Monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    name: Ping GARCAR API
+
+    steps:
+      - name: Health check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.API_URL }}/health" || echo "000")
+          echo "HTTP Status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ API healthy"
+          else
+            echo "❌ API down — HTTP $STATUS"
+            exit 1
+          fi
