@@ -2,7 +2,7 @@ name: API Health Monitor
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes
+    - cron: '23 8 * * *'  # Once daily at 8:23 UTC
   workflow_dispatch:
 
 jobs:
@@ -11,13 +11,27 @@ jobs:
     name: Ping GARCAR API
 
     steps:
-      - name: Health check
+      - name: Check required secrets
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.API_URL }}/health" || echo "000")
+          if [ -z "$API_URL" ]; then
+            echo "API_URL secret is not set — skipping health check."
+            echo "skip=true" >> "$GITHUB_ENV"
+          else
+            echo "skip=false" >> "$GITHUB_ENV"
+          fi
+        env:
+          API_URL: ${{ secrets.API_URL }}
+
+      - name: Health check
+        if: env.skip != 'true'
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/health" || echo "000")
           echo "HTTP Status: $STATUS"
           if [ "$STATUS" = "200" ]; then
-            echo "✅ API healthy"
+            echo "API healthy"
           else
-            echo "❌ API down — HTTP $STATUS"
+            echo "API returned HTTP $STATUS"
             exit 1
           fi
+        env:
+          API_URL: ${{ secrets.API_URL }}
