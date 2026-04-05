@@ -11,26 +11,48 @@ jobs:
     name: Deploy to Render
 
     steps:
-      - name: Trigger Render deploy
+      - name: Check required secrets
         run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" \
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK secret is not set — skipping deploy."
+            echo "skip=true" >> "$GITHUB_ENV"
+          else
+            echo "skip=false" >> "$GITHUB_ENV"
+          fi
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+
+      - name: Trigger Render deploy
+        if: env.skip != 'true'
+        run: |
+          curl -X POST "$RENDER_DEPLOY_HOOK" \
             --fail --silent --show-error
           echo "Deploy triggered successfully"
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
 
       - name: Wait for deployment
+        if: env.skip != 'true'
         run: sleep 30
 
       - name: Health check
+        if: env.skip != 'true'
         run: |
+          if [ -z "$API_URL" ]; then
+            echo "API_URL secret is not set — skipping health check."
+            exit 0
+          fi
           for i in {1..12}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.API_URL }}/health" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/health" || echo "000")
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
-              echo "✅ GARCAR API is live at ${{ secrets.API_URL }}"
-              curl -s "${{ secrets.API_URL }}/health"
+              echo "GARCAR API is live at $API_URL"
+              curl -s "$API_URL/health"
               exit 0
             fi
             sleep 15
           done
-          echo "⚠️ Health check timed out — deploy may still be in progress"
+          echo "Health check timed out — deploy may still be in progress"
           exit 0
+        env:
+          API_URL: ${{ secrets.API_URL }}
