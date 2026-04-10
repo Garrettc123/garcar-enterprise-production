@@ -10,6 +10,7 @@ import logging
 from database import get_db
 from models import User, Payment
 from auth import get_current_user
+from rhns_audit import run_rhns_audit, STARTER_AUDIT_PRODUCT_IDS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -201,6 +202,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 db.commit()
                 logger.info(f"User {user.email} upgraded to {plan}")
 
+        # Fire RHNS audit pipeline for Starter Audit purchases
+        _handle_checkout_completed(data)
+
     elif event_type == "customer.subscription.updated":
         customer_id = data.get("customer")
         status = data.get("status")
@@ -225,3 +229,69 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             logger.warning(f"Payment failed for {user.email}")
 
     return {"status": "ok"}
+
+
+# ── RHNS Audit Helpers ────────────────────────────────────────────────────────
+
+def _handle_checkout_completed(session: dict):
+    """
+    Handles a completed Stripe checkout session.
+    Detects Starter Audit purchases and fires the RHNS audit pipeline.
+    """
+    # Extract customer info
+    customer_email = (
+        session.get("customer_details", {}).get("email")
+        or session.get("customer_email")
+        or ""
+    )
+    customer_name = session.get("customer_details", {}).get("name") or ""
+    metadata = session.get("metadata") or {}
+    session_id = session.get("id", "")
+
+    if not customer_email:
+        logger.warning(f"Checkout session {session_id} has no customer email — skipping RHNS")
+        return
+
+    # Determine what was purchased
+    line_items = _get_line_items(session_id)
+    product_ids = {item.get("price", {}).get("product") for item in line_items}
+
+    logger.info(f"Checkout complete — {customer_email} — products: {product_ids}")
+
+    # ── Starter Audit purchase — fire RHNS audit pipeline ──
+    if product_ids & STARTER_AUDIT_PRODUCT_IDS:
+        logger.info(f"Starter Audit purchase detected — firing RHNS audit for {customer_email}")
+        try:
+            result = run_rhns_audit(
+                customer_email=customer_email,
+                customer_name=customer_name,
+                company_name=metadata.get("company_name", ""),
+                checkout_metadata=metadata,
+                engagement_id=f"ENG-{session_id[:8].upper()}",
+                upsell_url=os.getenv(
+                    "RECOVERY_SPRINT_URL",
+                    "https://buy.stripe.com/garcar-recovery-sprint",
+                ),
+            )
+            logger.info(f"RHNS audit complete: {result}")
+        except Exception as e:
+            # Non-fatal — log and continue, don't fail the webhook response
+            logger.error(f"RHNS audit failed for {customer_email}: {e}")
+
+    # ── AI Growth Engine — trigger onboarding sequence ──
+    ai_growth_engine_ids = set(
+        os.getenv("AI_GROWTH_ENGINE_PRODUCT_IDS", "prod_AIGrowthEngine").split(",")
+    )
+    if product_ids & ai_growth_engine_ids:
+        logger.info(f"AI Growth Engine purchase — triggering onboarding for {customer_email}")
+        # TODO: fire onboarding sequence via nurture.py
+
+
+def _get_line_items(session_id: str) -> list:
+    """Retrieve line items for a checkout session from Stripe."""
+    try:
+        items = stripe.checkout.Session.list_line_items(session_id, limit=10)
+        return items.get("data", [])
+    except Exception as e:
+        logger.warning(f"Could not fetch line items for session {session_id}: {e}")
+        return []
