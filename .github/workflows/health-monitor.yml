@@ -11,27 +11,35 @@ jobs:
     name: Ping GARCAR API
 
     steps:
-      - name: Check required secrets
+      - name: Check API_URL secret
+        id: check
         run: |
           if [ -z "$API_URL" ]; then
-            echo "API_URL secret is not set — skipping health check."
-            echo "skip=true" >> "$GITHUB_ENV"
+            echo "::warning::API_URL secret is not set — skipping health check."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> "$GITHUB_ENV"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           API_URL: ${{ secrets.API_URL }}
 
       - name: Health check
-        if: env.skip != 'true'
+        if: steps.check.outputs.skip != 'true'
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/health" || echo "000")
           echo "HTTP Status: $STATUS"
           if [ "$STATUS" = "200" ]; then
             echo "API healthy"
           else
-            echo "API returned HTTP $STATUS"
+            echo "::warning::API returned HTTP $STATUS — may still be warming up"
             exit 1
           fi
         env:
           API_URL: ${{ secrets.API_URL }}
+
+      - name: Skip notice
+        if: steps.check.outputs.skip == 'true'
+        run: |
+          echo "Health check skipped — API_URL secret not configured."
+          echo "To enable: add API_URL to repo secrets at:"
+          echo "https://github.com/Garrettc123/garcar-enterprise-production/settings/secrets/actions"
