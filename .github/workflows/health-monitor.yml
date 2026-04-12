@@ -15,7 +15,7 @@ jobs:
         id: check
         run: |
           if [ -z "$API_URL" ]; then
-            echo "::warning::API_URL secret is not set — skipping health check."
+            echo "::notice::API_URL secret is not set — skipping health check."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
@@ -43,3 +43,4 @@ jobs:
           echo "Health check skipped — API_URL secret not configured."
           echo "To enable: add API_URL to repo secrets at:"
           echo "https://github.com/Garrettc123/garcar-enterprise-production/settings/secrets/actions"
+          exit 0
