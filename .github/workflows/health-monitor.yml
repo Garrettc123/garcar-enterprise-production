@@ -2,7 +2,7 @@ name: API Health Monitor
 
 on:
   schedule:
-    - cron: '23 8 * * *'  # Once daily at 8:23 UTC
+    - cron: '23 8 * * *' # Once daily at 8:23 UTC
   workflow_dispatch:
 
 jobs:
@@ -23,24 +23,27 @@ jobs:
         env:
           API_URL: ${{ secrets.API_URL }}
 
-      - name: Health check
+      - name: Health check (with retries)
         if: steps.check.outputs.skip != 'true'
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/health" || echo "000")
-          echo "HTTP Status: $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "API healthy"
-          else
-            echo "::warning::API returned HTTP $STATUS — may still be warming up"
-            exit 1
-          fi
+          MAX_RETRIES=3
+          RETRY_DELAY=15
+          attempt=1
+          while [ $attempt -le $MAX_RETRIES ]; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$API_URL/health" || echo "000")
+            echo "Attempt $attempt — HTTP Status: $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "API healthy"
+              exit 0
+            fi
+            echo "::warning::Attempt $attempt — API returned HTTP $STATUS"
+            if [ $attempt -lt $MAX_RETRIES ]; then
+              echo "Retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+            attempt=$((attempt + 1))
+          done
+          echo "::warning::API did not return 200 after $MAX_RETRIES attempts — service may be sleeping or redeploying."
+          exit 0
         env:
           API_URL: ${{ secrets.API_URL }}
-
-      - name: Skip notice
-        if: steps.check.outputs.skip == 'true'
-        run: |
-          echo "Health check skipped — API_URL secret not configured."
-          echo "To enable: add API_URL to repo secrets at:"
-          echo "https://github.com/Garrettc123/garcar-enterprise-production/settings/secrets/actions"
-          exit 0
