@@ -1,0 +1,14 @@
+name: Provision Customer
+on:
+  repository_dispatch:
+    types: [provision-customer]
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Vercel
+        run: |
+          curl -s -X POST https://api.vercel.com/v1/deployments             -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"             -H "Content-Type: application/json"             -d '{"name":"garcar-enterprise-production","gitSource":{"type":"github","ref":"main"}}'
+      - name: Notify butler
+        run: |
+          curl -s -X POST "${{ secrets.BUTLER_WEBHOOK_URL }}"             -H "Content-Type: application/json"             -d '{"event":"customer_provisioned","email":"${{ github.event.client_payload.email }}"}'
