@@ -1,20 +1,65 @@
 name: Butler Revenue Monitor
+
 on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
     steps:
       - name: Check endpoints
+        env:
+          PRODUCT_URLS: ${{ secrets.PRODUCT_URLS }}
+          BUTLER_WEBHOOK_URL: ${{ secrets.BUTLER_WEBHOOK_URL }}
         run: |
-          for url in ${{ secrets.PRODUCT_URLS }}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
-            if [ "$code" != "200" ]; then
-              curl -s -X POST "${{ secrets.BUTLER_WEBHOOK_URL }}"                 -H "Content-Type: application/json"                 -d "{"alert":"down","url":"$url","status":"$code"}"
-            fi
+          echo "=== BUTLER REVENUE MONITOR ==="
+          echo "Time: $(date -u)"
+
+          if [ -z "$PRODUCT_URLS" ]; then
+            echo "[SKIP] PRODUCT_URLS secret not configured - skipping endpoint checks"
+            echo "Add PRODUCT_URLS secret (space-separated URLs) to enable monitoring"
+          else
+            echo "Checking product endpoints..."
+            for url in $PRODUCT_URLS; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" || echo "000")
+              echo "  $url -> HTTP $code"
+              if [ "$code" != "200" ]; then
+                echo "  [ALERT] $url is DOWN (status $code)"
+                if [ -n "$BUTLER_WEBHOOK_URL" ]; then
+                  curl -s -X POST "$BUTLER_WEBHOOK_URL" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"alert\":\"down\",\"url\":\"$url\",\"status\":\"$code\",\"time\":\"$(date -u)\"}" \
+                    && echo "  [OK] Alert sent" || echo "  [WARN] Alert failed"
+                fi
+              fi
+            done
+          fi
+
+      - name: Check Garcar live endpoints (always)
+        run: |
+          echo "Checking live Garcar endpoints..."
+          for url in \
+            "https://frontend-sigma-flame-17.vercel.app" \
+            "https://garcar-enterprise-production-production.up.railway.app/health"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
+            echo "  $url -> HTTP $code"
           done
+
       - name: Revenue pulse
+        env:
+          BUTLER_WEBHOOK_URL: ${{ secrets.BUTLER_WEBHOOK_URL }}
         run: |
-          curl -s -X POST "${{ secrets.BUTLER_WEBHOOK_URL }}"             -H "Content-Type: application/json"             -d "{"task":"revenue_sync","ts":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}"
+          if [ -n "$BUTLER_WEBHOOK_URL" ]; then
+            curl -s -X POST "$BUTLER_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"task\":\"revenue_sync\",\"ts\":\"$(date -u)\",\"status\":\"alive\"}" \
+              && echo "[OK] Revenue pulse sent" || echo "[SKIP] Pulse failed"
+          else
+            echo "[SKIP] BUTLER_WEBHOOK_URL not set - skipping revenue pulse"
+          fi
+
+      - name: Monitor summary
+        run: |
+          echo "=== BUTLER MONITOR COMPLETE: $(date -u) ==="
