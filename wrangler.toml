@@ -1,0 +1,6 @@
+name = "garcar-lead-capture"
+main = "workers/lead-capture.js"
+compatibility_date = "2026-07-26"
+
+[observability]
+enabled = true
