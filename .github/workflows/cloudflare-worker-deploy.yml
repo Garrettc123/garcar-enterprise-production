@@ -1,0 +1,67 @@
+name: Deploy Cloudflare Lead Capture Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "workers/lead-capture.js"
+      - "wrangler.toml"
+      - ".github/workflows/cloudflare-worker-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      HF_SCORER_URL: ${{ secrets.HF_SCORER_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_ACCOUNT_ID SUPABASE_URL SUPABASE_ANON_KEY HF_SCORER_URL; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required GitHub Actions secret: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@latest
+
+      - name: Sync Supabase and scorer secrets to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$SUPABASE_URL" | wrangler secret put SUPABASE_URL
+          printf '%s' "$SUPABASE_ANON_KEY" | wrangler secret put SUPABASE_ANON_KEY
+          printf '%s' "$HF_SCORER_URL" | wrangler secret put HF_SCORER_URL
+
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: wrangler deploy
+
+      - name: Health check
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKER_URL="https://garcar-lead-capture.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
+          echo "Worker deployment completed. Verify the public hostname in Cloudflare if this account uses a custom workers.dev routing configuration."
+          echo "Expected health endpoint: ${WORKER_URL}/health"
