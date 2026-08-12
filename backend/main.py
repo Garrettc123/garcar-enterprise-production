@@ -1,7 +1,8 @@
 """
 GARCAR Enterprise Platform — Production API
 =============================================
-FastAPI backend with auth, Stripe payments, product APIs, lead capture, and admin dashboard.
+FastAPI backend with auth, Stripe payments, product APIs, lead capture,
+admin dashboard, Money Flow Loop, and the LIVE Autonomous Agent Runtime.
 """
 
 from fastapi import FastAPI
@@ -21,20 +22,38 @@ logger = logging.getLogger("garcar")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown."""
-    from database import init_db
+    """Startup and shutdown — agents boot with the platform."""
+    from database import init_db, SessionLocal
 
     logger.info("Initializing database...")
     init_db()
+
+    # ── BOOT THE AUTONOMOUS REVENUE ORGANISM ──────────────────────────────
+    try:
+        from agents.runtime import get_runtime
+        runtime = get_runtime(db_session_factory=SessionLocal)
+        await runtime.start()
+        logger.info("AUTONOMOUS AGENT RUNTIME STARTED — revenue agents are live")
+    except Exception as e:
+        logger.error(f"Failed to start agent runtime (platform still up): {e}")
+
     logger.info("GARCAR Platform API started")
     yield
+
+    # Shutdown
+    try:
+        from agents.runtime import get_runtime
+        runtime = get_runtime()
+        await runtime.stop()
+    except Exception:
+        pass
     logger.info("Shutting down")
 
 
 app = FastAPI(
     title="GARCAR Enterprise Platform",
-    description="AI-powered business automation — Deal Desk, SEO Factory, Churn Predictor",
-    version="1.0.0",
+    description="AI-powered business automation — Deal Desk, SEO Factory, Churn Predictor + Live Agent Revenue Engine",
+    version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -70,13 +89,27 @@ app.include_router(products_router)
 app.include_router(admin_router)
 app.include_router(nurture_router)
 
+# Money Flow Loop
+try:
+    from money_flow_loop.api import router as money_flow_router
+    app.include_router(money_flow_router)
+except Exception as e:
+    logger.warning(f"Money Flow Loop not mounted: {e}")
+
+# Autonomous Agent Network
+try:
+    from agents.api import router as agents_router
+    app.include_router(agents_router)
+except Exception as e:
+    logger.warning(f"Agent API not mounted: {e}")
+
 
 # --- Root & Health ---
 @app.get("/")
 def root():
     return {
         "name": "GARCAR Enterprise Platform",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "status": "operational",
         "docs": "/docs",
         "endpoints": {
@@ -87,16 +120,30 @@ def root():
             "admin": "/api/admin",
             "nurture": "/api/nurture",
             "webhooks": "/api/webhooks/stripe",
+            "money_flow": "/api/money-flow",
+            "agents": "/api/agents",
         },
+        "agents": "Autonomous revenue runtime boots with the platform",
     }
 
 
 @app.get("/health")
 def health():
+    agent_status = {}
+    try:
+        from agents.runtime import get_runtime
+        agent_status = get_runtime().status()
+    except Exception:
+        agent_status = {"running": False}
+
     return {
         "status": "healthy",
         "time": datetime.now(timezone.utc).isoformat(),
         "stripe": "configured" if os.getenv("STRIPE_SECRET_KEY") else "not configured",
+        "agents": {
+            "running": agent_status.get("running", False),
+            "cycles": agent_status.get("total_cycles", 0),
+        },
     }
 
 
