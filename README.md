@@ -1,63 +1,49 @@
-# Garcar Enterprise
+# Garcar Enterprise — Revenue Locked
 
-AI revenue-operations infrastructure for lead capture, content automation, churn prediction, and customer follow-up.
+**Status: LIVE AND SELLING**
 
-## What it does
+Primary revenue surface (live payments):
+- https://garrettc123.github.io/
+- New clean deploy: check Vercel project `garcar-revenue`
 
-Garcar Enterprise helps businesses automate the revenue workflows that normally require manual operations work:
+## What is for sale right now
 
-- Capture and enrich leads
-- Generate SEO and sales content
-- Score deal opportunities
-- Predict churn risk
-- Trigger email nurture sequences
-- Connect billing events to customer workflows
+| Offer | Price | Stripe Link |
+|-------|-------|-------------|
+| Contractor Lead Leak Audit | $47 | https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D |
+| Revenue Recovery Sprint | $497/wk | https://buy.stripe.com/aFa8wPdjfggO3QDcS743S1F |
+| AI Growth Engine | $1,497/mo | https://buy.stripe.com/9B63cv4MJ9Sq1Iv19p43S1E |
 
-## Who it is for
+## Operating Rule (non-negotiable)
 
-Garcar is designed for founders, agencies, SaaS operators, and service businesses that want AI automation without stitching together multiple disconnected tools.
+1. Cash first.
+2. Everything that does not directly create or fulfill a paid order is frozen.
+3. New modules only after the previous paid offer has clear delivery capacity and margin.
 
-## Core modules
+## What is currently frozen
 
-### Lead Intelligence
-Capture, score, and prioritize inbound prospects.
+- Multi-agent orchestration experiments
+- NWU protocol / blockchain verification work
+- Full CRM / SEO factory / churn predictor expansions
+- Any "$100M stack" documentation that is not tied to a live customer
 
-### SEO Content Factory
-Generate, review, and publish search-focused content workflows.
+These remain in the repo for future use. They do not block the revenue loop.
 
-### Churn Prediction
-Identify customers at risk before revenue is lost.
+## Immediate daily actions
 
-### Deal Desk Automation
-Route opportunities, summarize deal context, and recommend next actions.
+1. Drive traffic to the live landing (Texas contractor groups, LinkedIn, direct outreach).
+2. Deliver the $47 audit in ≤48 hours every time it sells.
+3. Convert audit buyers into the $497/wk sprint within 7 days.
+4. Log every payment and every delivery outcome.
 
-### Billing-Aware Workflows
-Use Stripe events to trigger onboarding, follow-up, retention, and upgrade flows.
+## Architecture still present (but secondary)
 
-## Architecture
-
-- API layer
-- Agent orchestration layer
-- Workflow execution engine
-- Customer/event data layer
-- Authentication and billing
-- Admin dashboard
-
-## Status
-
-Garcar Enterprise is currently in active development. The current focus is building a reliable RevOps automation platform for small and mid-sized businesses.
-
-## Roadmap
-
-- Live demo
-- Hosted dashboard
-- Stripe workflow templates
-- CRM integrations
-- Email automation templates
-- Customer analytics
-- Team permissions
-- Enterprise audit logs
+API layer, agent orchestration, billing webhooks, money_flow_loop, etc. remain available. Use them only when a paid customer requires the automation. Until then the landing + Stripe links are the product.
 
 ## Founder
 
-Built by Garrett Carrol.
+Garrett Carrol · garrett@garcar.io · Grandview / Kopperl, TX
+
+---
+
+**This repository is now subordinate to revenue.**
