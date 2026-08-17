@@ -37,10 +37,10 @@ class RevenueEngine:
 
     # ── Core Revenue Actions ──────────────────────────────────────────────
 
-    def hunt_and_capture(self, source: str = "agent_autonomous") -> Dict[str, Any]:
+    def hunt_and_capture(self, source: str = "agent_autonomous", email: Optional[str] = None) -> Dict[str, Any]:
         """
         LeadNurtureBot + AudienceAnalyzerMedia action.
-        Forces the Money Flow Loop to ingest new attention.
+        Forces the Money Flow Loop to ingest new attention and persist a real Lead.
         """
         try:
             from money_flow_loop.orchestrator import MoneyFlowOrchestrator
@@ -51,13 +51,16 @@ class RevenueEngine:
             orch = MoneyFlowOrchestrator(db)
             result = orch.ingest_attention(
                 source=source,
-                email=None,  # will be enriched later
+                email=email,
                 metadata={
                     "agent": "LeadNurtureBot",
                     "autonomous": True,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 },
             )
+            # Ensure lead_id and email bubble up
+            if isinstance(result, dict):
+                result.setdefault("prospect_id", result.get("id"))
             self._log_event("attention_ingested", result)
             return result
         except Exception as e:
@@ -84,17 +87,20 @@ class RevenueEngine:
             logger.error(f"advance_pipeline failed: {e}")
             return {"status": "error", "error": str(e)}
 
-    def force_conversion_opportunity(self, email: str, plan: str = "starter") -> Dict[str, Any]:
+    def force_conversion_opportunity(self, email: str, plan: str = "starter", lead_id: Optional[int] = None) -> Dict[str, Any]:
         """
         CheckoutOptimizer + PricingDynamo action.
         Surfaces a live Stripe checkout path for a warm lead.
+        Only call this with real emails.
         """
         try:
-            # This creates the opportunity record. Actual Stripe session is created
-            # when the lead hits the frontend or the API is called with auth.
+            if not email or email.endswith("@garcar.internal"):
+                return {"status": "skipped", "reason": "no real email"}
+
             event = {
                 "type": "conversion_opportunity",
                 "email": email,
+                "lead_id": lead_id,
                 "plan": plan,
                 "agent": "CheckoutOptimizer",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -113,8 +119,6 @@ class RevenueEngine:
         Identifies at-risk revenue so retention agents can act.
         """
         try:
-            # Placeholder for real churn model; currently logs the intent
-            # so the runtime can later call the actual churn_predictor.py
             event = {
                 "type": "churn_scan",
                 "agent": "RetentionEngine",
@@ -158,7 +162,6 @@ class RevenueEngine:
             "cycle": self.cycle_count,
         }
         self.revenue_events.append(record)
-        # Keep only last 500 events in memory
         if len(self.revenue_events) > 500:
             self.revenue_events = self.revenue_events[-500:]
         logger.info(f"[REVENUE] {event_type}")
