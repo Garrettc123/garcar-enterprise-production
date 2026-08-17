@@ -7,7 +7,7 @@ On every cycle it:
 1. Deploys the highest-ROI revenue agents
 2. Executes real actions through the RevenueEngine
 3. Advances prospects through the Money Flow Loop
-4. Surfaces conversion opportunities
+4. Surfaces conversion opportunities for real leads
 5. Closes loops and feeds new attention
 
 No human required. No more theory.
@@ -103,17 +103,23 @@ class AutonomousRuntime:
 
         logger.info(f"=== REVENUE CYCLE {self.total_cycles} ===")
 
-        # 1. Hunt new attention
+        # 1. Hunt new attention (now persists real Lead records)
         hunt = self.engine.hunt_and_capture(source=f"autonomous_cycle_{self.total_cycles}")
-        logger.info(f"Hunt result: {hunt.get('status') or hunt.get('advanced_to') or 'ok'}")
+        logger.info(f"Hunt result: {hunt.get('status') or hunt.get('advanced_to') or hunt.get('db_persisted') or 'ok'}")
 
-        # 2. If we got a prospect, push it forward
+        # 2. Extract real identifiers
         prospect_id = None
+        lead_id = None
+        email = None
         if isinstance(hunt, dict):
             prospect_id = hunt.get("prospect_id") or hunt.get("id")
-            # Some orchestrators return nested structures
+            lead_id = hunt.get("lead_id")
+            email = hunt.get("email")
             if not prospect_id and "prospect" in hunt:
-                prospect_id = hunt["prospect"].get("id")
+                p = hunt["prospect"]
+                prospect_id = p.get("id")
+                lead_id = p.get("lead_id") or lead_id
+                email = p.get("email") or email
 
         if prospect_id:
             # Advance through the critical early stages
@@ -121,14 +127,13 @@ class AutonomousRuntime:
                 adv = self.engine.advance_pipeline(str(prospect_id), stage)
                 logger.info(f"Advanced {prospect_id} → {stage}: {adv.get('advanced_to')}")
 
-        # 3. Surface conversion opportunities (even without a specific prospect)
-        #    This keeps the system aggressive
-        self.engine.force_conversion_opportunity(
-            email=f"cycle{self.total_cycles}@garcar.internal",
-            plan="starter",
-        )
+            # Only surface conversion if we have a real-looking email
+            if email and not email.endswith("@garcar.internal"):
+                self.engine.force_conversion_opportunity(email=email, plan="starter")
+            else:
+                logger.info("Skipping fake conversion opportunity — no real email yet")
 
-        # 4. Churn / retention pass
+        # 3. Churn / retention pass (always useful)
         self.engine.run_churn_scan()
 
         logger.info(f"Cycle {self.total_cycles} complete — {len(self.engine.revenue_events)} total events")
