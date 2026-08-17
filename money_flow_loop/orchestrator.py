@@ -56,7 +56,8 @@ class MoneyFlowOrchestrator:
     ) -> Dict[str, Any]:
         """
         Stage 1 entry: cold or warm attention arrives.
-        Creates a prospect record and immediately queues trust micro-proof.
+        Creates a real Lead and immediately queues trust micro-proof.
+        Returns the full prospect dict (including lead_id and email) so callers can act.
         """
         from .stages.attention import AttentionStage
 
@@ -70,11 +71,21 @@ class MoneyFlowOrchestrator:
         )
 
         logger.info(
-            f"[LOOP {self.loop_id[:8]}] Attention captured → prospect {prospect.get('id')} from {source}"
+            f"[LOOP {self.loop_id[:8]}] Attention captured → prospect {prospect.get('id')} lead_id={prospect.get('lead_id')} from {source}"
         )
 
         # Immediately advance toward trust
-        return self.advance(prospect["id"], LoopStage.TRUST)
+        advance_result = self.advance(prospect["id"], LoopStage.TRUST)
+
+        # Merge so callers get both the prospect identity and the stage result
+        return {
+            **prospect,
+            **advance_result,
+            "prospect_id": prospect.get("id"),
+            "lead_id": prospect.get("lead_id"),
+            "email": prospect.get("email"),
+            "db_persisted": prospect.get("db_persisted", False),
+        }
 
     def advance(self, prospect_id: str, target_stage: LoopStage) -> Dict[str, Any]:
         """
