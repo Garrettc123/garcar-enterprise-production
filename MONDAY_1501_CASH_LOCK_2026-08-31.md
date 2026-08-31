@@ -1,24 +1,17 @@
 # MONDAY 15:01 CDT — CASH LOCK
 
-Garcar is not broken as software. It is broken as a cash machine.
+Storefront LIVE: https://garrettc123.github.io/
+Pay LIVE: https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D
+Stranger paid: 0
+HubSpot deals: 0
+PAYMENT_LOG: empty
 
-Verified this hour:
-- Storefront loads: https://garrettc123.github.io/
-- $47 checkout loads: https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D (Garcar Starter Audit — $47 One-Time)
-- HubSpot deals: 0
-- PAYMENT_LOG stranger rows: 0
-- Stripe hole still uncleared (~-$53 as of last lock)
+Landing re-checked at 15:01. $47 button present. Hero and sticky CTA both point at the audit.
 
-Frozen: lead_agent, swarm, genomes, butler, MARS, NWU, vault, operator fabric.
-Do not create another repo, payment link, or Vercel project.
-Do not charge 4242.
+## This hour
 
-## Only work that counts
+Send the 25 texts in MONDAY_1501_DIAL_NOW.md from the phone. Voicemail if no pickup. Do not wait for a new repo.
 
-1. Text / call / shop-form the 25 Johnson County + south DFW owners in MONDAY_1405_DIAL_NOW.md
-2. One offer: $47 48-hour leak map
-3. If anyone pays, open fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md the same hour
-4. Log one line in PAYMENT_LOG.md
-5. $497/wk only after the map is in their inbox and they reply
+If anyone pays: open fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md the same hour. One line in PAYMENT_LOG.md.
 
 Three paid stranger audits clear the Stripe hole. Architecture does not.
