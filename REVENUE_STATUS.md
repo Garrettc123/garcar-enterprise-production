@@ -1,6 +1,6 @@
 # Garcar Enterprise — Live Revenue Status
 
-**Date:** 2026-08-30 17:01 CDT (Grok cash lock, verified live)
+**Date:** 2026-08-30 19:01 CDT (Grok cash lock, verified live)
 
 ## Verified facts
 
@@ -28,7 +28,7 @@ No stranger has paid. Lists were written all day. Texts still have to leave the 
 ## Lock still in force
 
 1. Sell only the $47 audit.
-2. Send 25 Texas contractor messages from the latest CUSTOMER_BRING file.
+2. Send 25 Texas contractor messages from SUNDAY_1901_DIAL_NOW.md.
 3. Deliver every paid audit in ≤48h using `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md`.
 4. Stop live-mode self-checkout. No 4242.
 5. Do not touch Vercel until first three paid audits clear the -$53 hole.
