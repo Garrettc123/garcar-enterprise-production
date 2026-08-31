@@ -1,6 +1,6 @@
 # Garcar Enterprise — Live Revenue Status
 
-**Date:** 2026-08-31 16:04 CDT (Monday cash lock — landing + Stripe re-verified)
+**Date:** 2026-08-31 18:06 CDT (Monday evening cash lock — landing + Stripe re-verified)
 
 ## Verified facts
 
@@ -21,12 +21,12 @@ Sprint ($497/wk) stays off the public page until an audit is delivered and they 
 
 ## What is broken
 
-Not the software. No stranger has paid. Lists were written all weekend and this morning. The 16:04 texts still have to leave the phone.
+Not the software. No stranger has paid. Lists were written all weekend and today. The 18:06 texts still have to leave the phone.
 
 ## Lock still in force
 
 1. Sell only the $47 audit.
-2. Send 25 Texas contractor messages from MONDAY_1604_DIAL_NOW.md.
+2. Send 25 Texas contractor messages from MONDAY_1805_CUSTOMER_BRING_2026-08-31.md.
 3. Deliver every paid audit in ≤48h using `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md`.
 4. Stop live-mode self-checkout. No 4242.
 5. Do not touch Vercel until first three paid audits clear the -$53 hole.
