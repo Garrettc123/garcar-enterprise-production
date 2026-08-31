@@ -1,6 +1,6 @@
 # Garcar Enterprise — Live Revenue Status
 
-**Date:** 2026-08-30 23:10 CDT (cash lock, verified live)
+**Date:** 2026-08-31 10:05 CDT (Monday cash lock, landing re-verified)
 
 ## Verified facts
 
@@ -8,8 +8,7 @@
 - Only public offer: $47 Contractor Lead Leak Audit — https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D
 - HubSpot deals: 0
 - PAYMENT_LOG stranger rows: 0
-- Gmail: no $47 Stripe receipt from a customer
-- Available balance last verified: **-$53.30 USD**
+- Available balance last verified (prior lock): **-$53.30 USD**
 - Public repos: 170+. Frozen until three paid stranger audits exist.
 
 ## What is LIVE (keep)
@@ -22,13 +21,12 @@ Sprint ($497/wk) stays off the public page until an audit is delivered and they 
 
 ## What is broken
 
-Not the orchestrator. Not genomes. Not Cloudflare Workers.
-No stranger has paid. Lists were written all day. Texts still have to leave the phone.
+Not the software. No stranger has paid. Sunday lists were written. Monday texts still have to leave the phone.
 
 ## Lock still in force
 
 1. Sell only the $47 audit.
-2. Send 25 Texas contractor messages from SUNDAY_2310_DIAL_NOW.md.
+2. Send 25 Texas contractor messages from MONDAY_1005_DIAL_NOW.md.
 3. Deliver every paid audit in ≤48h using `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md`.
 4. Stop live-mode self-checkout. No 4242.
 5. Do not touch Vercel until first three paid audits clear the -$53 hole.
