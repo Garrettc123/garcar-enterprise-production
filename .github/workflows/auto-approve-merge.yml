@@ -3,9 +3,6 @@ name: Auto Approve & Merge
 on:
   pull_request:
     types: [opened, reopened, synchronize]
-  workflow_run:
-    workflows: ["*"]
-    types: [completed]
 
 permissions:
   contents: write
