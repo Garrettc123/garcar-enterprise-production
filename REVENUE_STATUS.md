@@ -1,35 +1,40 @@
 # Garcar Enterprise — Live Revenue Status
 
-**Date:** 2026-08-31 18:06 CDT (Monday evening cash lock — landing + Stripe re-verified)
+**Date:** 2026-09-03 12:45 CDT (cash lock lifted by founder directive)
 
-## Verified facts
+## Policy change
+
+The August 31 lock is revoked. Public repos and architecture work are unfrozen. Revenue surface stays live.
+
+## Last verified cash facts (as of 2026-08-31 lock file; re-verify before treating as current)
 
 - Storefront that loads: https://garrettc123.github.io/
-- Only public offer: $47 Contractor Lead Leak Audit — https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D
-- HubSpot deals: 0
-- PAYMENT_LOG stranger rows: 0
-- Available balance last verified (prior lock): **-$53.30 USD**
-- Public repos: 170+. Frozen until three paid stranger audits exist.
+- Public offer still live: $47 Contractor Lead Leak Audit — https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D
+- HubSpot deals (last lock snapshot): 0
+- PAYMENT_LOG stranger rows (last lock snapshot): 0
+- Available balance last verified (prior lock): **-$53.30 USD** — treat as stale until a fresh Stripe pull
+- Public repos: 170+. Freeze condition removed 2026-09-03.
 
 ## What is LIVE (keep)
 
 | Offer | Price | Public link |
 |-------|-------|-------------|
 | Contractor Lead Leak Audit | $47 | https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D |
+| Revenue Recovery Sprint | $497/wk | https://buy.stripe.com/aFa8wPdjfggO3QDcS743S1F |
+| AI Growth Engine | $1,497/mo | https://buy.stripe.com/9B63cv4MJ9Sq1Iv19p43S1E |
 
-Sprint ($497/wk) stays off the public page until an audit is delivered and they reply.
+Sprint may appear on the public page. Conversion still prefers audit → sprint after delivery and a reply.
 
-## What is broken
+## What the lock no longer forbids
 
-Not the software. No stranger has paid. Lists were written all weekend and today. The 18:06 texts still have to leave the phone.
+1. Touching Vercel, CI, and deploy mesh.
+2. Agent / swarm / genome / RHNS / NWU work that is not a paid-order fulfillment task.
+3. New modules, dashboards, and acquisition systems.
 
-## Lock still in force
+## What still matters after the lift
 
-1. Sell only the $47 audit.
-2. Send 25 Texas contractor messages from MONDAY_1805_CUSTOMER_BRING_2026-08-31.md.
-3. Deliver every paid audit in ≤48h using `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md`.
-4. Stop live-mode self-checkout. No 4242.
-5. Do not touch Vercel until first three paid audits clear the -$53 hole.
-6. Freeze every agent/swarm/genome change that is not required to fulfill a paid order.
+1. Deliver every paid audit in ≤48h using `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md`.
+2. Do not use live-mode self-checkout (no 4242) as a substitute for a stranger payment.
+3. Log every payment and every delivery outcome.
 
-Cash > architecture.
+Architecture is unfrozen. Cash facts still have to be re-verified.

@@ -1,23 +1,28 @@
-# CASH COMMAND — 2026-08-27
+# CASH COMMAND — UPDATED 2026-09-03
 
-Garcar is not broken as software. It is broken as a cash machine.
+The August 27 / August 31 cash lock is lifted.
 
-Live Stripe is negative. Every recorded live charge is the founder. The landing is live. The product is a 48-hour written audit. That is the whole company until a stranger pays.
+Garcar still has a live $47 audit, a $497/wk sprint, and a $1,497/mo engine. Those offers stay for sale. Architecture is no longer parked until a stranger pays.
 
-## Do not
+## Allowed again
 
-- Create another repo, agent, genome, or payment link
-- Charge the live $47 link with card 4242
-- Open Vercel billing as a prerequisite to selling
-- Email Hampton / CertiK / GoHighLevel from HubSpot as if they were HVAC shops
+- Resume repos, agents, genomes, payment orchestration, and product UI
+- Touch Vercel / CI / deploy mesh when it unblocks a function
+- Run RHNS, NWU, vault, swarm, butler, operator fabric, and systems-master-hub work
+- Build acquisition systems in parallel with outbound
 
-## Do today
+## Still do not
 
-1. Open https://garrettc123.github.io/ on your phone. Confirm the $47 button.
-2. Text or DM 25 Texas owners (HVAC, roofing, plumbing, electrical, GC).
-3. Use one offer: $47 map of where jobs die between lead and close.
-4. When someone pays, start the template in `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md` the same hour.
-5. Log the payment in a single line: date, name, trade, city, amount, delivered Y/N.
+- Charge the live $47 link with card 4242 as if it were a customer
+- Treat a lock-file snapshot (balance, HubSpot deals) as current without a fresh pull
+- Miss the ≤48h delivery SLA if an audit actually sells
+
+## Still do today (revenue loop)
+
+1. Confirm https://garrettc123.github.io/ and the Stripe buttons load.
+2. Keep Texas contractor outreach available as one acquisition channel, not the only allowed work.
+3. When someone pays, start `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md` the same hour.
+4. Log the payment: date, name, trade, city, amount, delivered Y/N.
 
 ## Message (copy, change the trade)
 
@@ -29,9 +34,4 @@ Hey [Name] — I’m Garrett in Grandview. I write the 48-hour map of where Texa
 
 ## Upgrade rule
 
-Only offer $497/wk after the audit is in their inbox and they reply. Not before.
-
-## Kill list until 3 paid audits
-
-systems-master-hub experiments, MARS, NWU, vault, swarm, butler, prestige, operator fabric.
-They stay in git. They do not run.
+Prefer offering $497/wk after the audit is in their inbox and they reply. The sprint link may stay public after the lock lift.
