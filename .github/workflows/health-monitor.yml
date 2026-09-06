@@ -2,30 +2,32 @@ name: API Health Monitor
 
 on:
   schedule:
-    - cron: '23 8 * * *' # Once daily at 8:23 UTC
+    - cron: '23 8 * * *'
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    name: Ping GARCAR API
-
+    name: Ping cash surface and optional API
     steps:
-      - name: Check API_URL secret
-        id: check
+      - name: Cash storefront must be 200
         run: |
-          if [ -z "$API_URL" ]; then
-            echo "::notice::API_URL secret is not set — skipping health check."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+          url="https://garrettc123.github.io/"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$url" || echo "000")
+          echo "Storefront HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Cash storefront down (HTTP $STATUS)"
+            exit 1
           fi
+
+      - name: Optional API_URL
         env:
           API_URL: ${{ secrets.API_URL }}
-
-      - name: Health check (with retries)
-        if: steps.check.outputs.skip != 'true'
         run: |
+          if [ -z "$API_URL" ]; then
+            echo "::warning::API_URL secret is not set. Backend is not part of the cash path. Storefront check already passed."
+            exit 0
+          fi
           MAX_RETRIES=3
           RETRY_DELAY=15
           attempt=1
@@ -38,12 +40,9 @@ jobs:
             fi
             echo "::warning::Attempt $attempt — API returned HTTP $STATUS"
             if [ $attempt -lt $MAX_RETRIES ]; then
-              echo "Retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
             fi
             attempt=$((attempt + 1))
           done
-          echo "::warning::API did not return 200 after $MAX_RETRIES attempts — service may be sleeping or redeploying."
+          echo "::warning::API_URL is set but did not return 200. Not failing the job; cash storefront is the required surface."
           exit 0
-        env:
-          API_URL: ${{ secrets.API_URL }}

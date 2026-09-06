@@ -1,8 +1,8 @@
 """
 Garcar Enterprise — Revenue Loop Entry Point
 ============================================
-Replaces the previous stub.
-Now boots the full real-money flow loop organism.
+Does not move money by itself. A green run means the module imported.
+Cash still requires a stranger paying the $47 storefront.
 """
 
 from __future__ import annotations
@@ -17,17 +17,11 @@ logger = logging.getLogger("revenue_loop")
 
 
 def start_money_flow_loop(db: Optional[Session] = None) -> dict:
-    """
-    Boot the closed-loop revenue organism.
-    Call this from backend startup or a worker.
-    """
-    from money_flow_loop.orchestrator import MoneyFlowOrchestrator
-
     if db is None:
-        # Allow standalone health check without DB
         return {
-            "status": "organism_ready",
-            "message": "Real money flow loop is loaded. Pass a DB session for full operation.",
+            "status": "idle_no_db",
+            "message": "No DB session. Organism did not process charges. Storefront remains https://garrettc123.github.io/",
+            "paid_stranger_implied": False,
             "stages": [
                 "attention",
                 "trust",
@@ -38,13 +32,15 @@ def start_money_flow_loop(db: Optional[Session] = None) -> dict:
             ],
         }
 
+    from money_flow_loop.orchestrator import MoneyFlowOrchestrator
+
     orch = MoneyFlowOrchestrator(db)
     health = orch.health()
-    logger.info("Real money flow loop organism is ALIVE")
+    logger.info("Money flow orchestrator health checked against a live DB session")
     return health
 
 
 if __name__ == "__main__":
     result = start_money_flow_loop()
     print(result)
-    print("Revenue loop active — ready for real money movement.")
+    print("Revenue loop process finished — not a payment confirmation.")
