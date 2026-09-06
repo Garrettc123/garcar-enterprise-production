@@ -9,42 +9,57 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     steps:
-      - name: Check endpoints
+      - name: Required cash surface
+        id: cash
+        run: |
+          echo "=== BUTLER REVENUE MONITOR ==="
+          echo "Time: $(date -u)"
+          FAIL=0
+          # The only surface that can take a stranger $47 today.
+          url="https://garrettc123.github.io/"
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
+          echo "REQUIRED $url -> HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Cash storefront is down (HTTP $code)"
+            FAIL=1
+          fi
+          echo "fail=$FAIL" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Optional product URLs
         env:
           PRODUCT_URLS: ${{ secrets.PRODUCT_URLS }}
           BUTLER_WEBHOOK_URL: ${{ secrets.BUTLER_WEBHOOK_URL }}
         run: |
-          echo "=== BUTLER REVENUE MONITOR ==="
-          echo "Time: $(date -u)"
-
           if [ -z "$PRODUCT_URLS" ]; then
-            echo "[SKIP] PRODUCT_URLS secret not configured - skipping endpoint checks"
-            echo "Add PRODUCT_URLS secret (space-separated URLs) to enable monitoring"
+            echo "[WARN] PRODUCT_URLS secret not configured — optional checks skipped"
           else
-            echo "Checking product endpoints..."
             for url in $PRODUCT_URLS; do
               code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" || echo "000")
-              echo "  $url -> HTTP $code"
+              echo "OPTIONAL $url -> HTTP $code"
               if [ "$code" != "200" ]; then
-                echo "  [ALERT] $url is DOWN (status $code)"
+                echo "::warning::$url is DOWN (status $code)"
                 if [ -n "$BUTLER_WEBHOOK_URL" ]; then
                   curl -s -X POST "$BUTLER_WEBHOOK_URL" \
                     -H "Content-Type: application/json" \
                     -d "{\"alert\":\"down\",\"url\":\"$url\",\"status\":\"$code\",\"time\":\"$(date -u)\"}" \
-                    && echo "  [OK] Alert sent" || echo "  [WARN] Alert failed"
+                    || echo "[WARN] Alert post failed"
                 fi
               fi
             done
           fi
 
-      - name: Check Garcar live endpoints (always)
+      - name: Known-dead hosts (must not decide job success)
         run: |
-          echo "Checking live Garcar endpoints..."
+          echo "Checking legacy hosts (informational only):"
           for url in \
             "https://frontend-sigma-flame-17.vercel.app" \
             "https://garcar-enterprise-production-production.up.railway.app/health"; do
             code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
-            echo "  $url -> HTTP $code"
+            echo "LEGACY $url -> HTTP $code"
+            if [ "$code" != "200" ]; then
+              echo "::warning::Legacy host not live (HTTP $code). Do not treat this as a cash outage."
+            fi
           done
 
       - name: Revenue pulse
@@ -54,12 +69,14 @@ jobs:
           if [ -n "$BUTLER_WEBHOOK_URL" ]; then
             curl -s -X POST "$BUTLER_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
-              -d "{\"task\":\"revenue_sync\",\"ts\":\"$(date -u)\",\"status\":\"alive\"}" \
-              && echo "[OK] Revenue pulse sent" || echo "[SKIP] Pulse failed"
+              -d "{\"task\":\"revenue_sync\",\"ts\":\"$(date -u)\",\"status\":\"storefront_checked\"}" \
+              && echo "[OK] Pulse sent" || echo "[WARN] Pulse failed"
           else
-            echo "[SKIP] BUTLER_WEBHOOK_URL not set - skipping revenue pulse"
+            echo "[WARN] BUTLER_WEBHOOK_URL not set — no pulse"
           fi
 
-      - name: Monitor summary
+      - name: Fail if cash surface is down
+        if: steps.cash.outputs.fail == '1'
         run: |
-          echo "=== BUTLER MONITOR COMPLETE: $(date -u) ==="
+          echo "::error::Required cash surface failed. Job is red on purpose."
+          exit 1

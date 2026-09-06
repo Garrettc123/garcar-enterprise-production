@@ -10,11 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Storefront is the revenue surface
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garrettc123.github.io/" || echo "000")
+          echo "Storefront HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Cannot claim a revenue loop while the $47 page is down"
+            exit 1
+          fi
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install pandas scikit-learn joblib sqlalchemy
       - run: python revenue_loop.py
-      - name: Deploy billing
-        run: echo "Live revenue processed"
+      - name: Honest status
+        run: echo "Loop process ran. No Stripe charge is implied by a green check."
