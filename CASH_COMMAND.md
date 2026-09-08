@@ -1,37 +1,26 @@
-# CASH COMMAND — UPDATED 2026-09-03
+# CASH COMMAND — UPDATED 2026-09-08
 
-The August 27 / August 31 cash lock is lifted.
+The public page sells a $2,000 install and $1,000/month maintain.
+Do not tell a stranger the page is $47.
 
-Garcar still has a live $47 audit, a $497/wk sprint, and a $1,497/mo engine. Those offers stay for sale. Architecture is no longer parked until a stranger pays.
+## Live offer
 
-## Allowed again
-
-- Resume repos, agents, genomes, payment orchestration, and product UI
-- Touch Vercel / CI / deploy mesh when it unblocks a function
-- Run RHNS, NWU, vault, swarm, butler, operator fabric, and systems-master-hub work
-- Build acquisition systems in parallel with outbound
+- Page: https://garrettc123.github.io/
+- Install: https://buy.stripe.com/7sYaEX1Ax1lU5YL3hx43S2e ($2,000)
+- Maintain: $1,000/month after install (checkout issued then)
 
 ## Still do not
 
-- Charge the live $47 link with card 4242 as if it were a customer
-- Treat a lock-file snapshot (balance, HubSpot deals) as current without a fresh pull
-- Miss the ≤48h delivery SLA if an audit actually sells
+- Charge any live link with card 4242 as if it were a customer
+- Treat lock-file snapshots as current cash
+- Quote retired $47 / $497 / $1,497 SKUs as the page price
 
-## Still do today (revenue loop)
+## Still do today
 
-1. Confirm https://garrettc123.github.io/ and the Stripe buttons load.
-2. Keep Texas contractor outreach available as one acquisition channel, not the only allowed work.
-3. When someone pays, start `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md` the same hour.
-4. Log the payment: date, name, trade, city, amount, delivered Y/N.
+1. Confirm the landing loads and the $2,000 button hits Stripe.
+2. When someone pays, log date, name, amount, delivered Y/N the same hour.
+3. Fulfill the product they bought, not the product a 2026-09-03 memo remembered.
 
-## Message (copy, change the trade)
+## Message (copy)
 
-Hey [Name] — I’m Garrett in Grandview. I write the 48-hour map of where Texas [HVAC/roofing/plumbing] shops lose jobs after the lead hits. First response gap is usually the money. $47, delivered to your email. If the map is wrong you say so. Link: https://garrettc123.github.io/
-
-## Phone closer
-
-“Don’t buy software. Buy a 6-page map of your leak. If I can’t name the dollars, keep the $47 conversation and don’t upgrade.”
-
-## Upgrade rule
-
-Prefer offering $497/wk after the audit is in their inbox and they reply. The sprint link may stay public after the lock lift.
+Hey [Name] — I’m Garrett. I install a revenue system that maps where jobs die after the lead hits, then I maintain it. $2,000 to install. $1,000 a month after that. Link: https://garrettc123.github.io/

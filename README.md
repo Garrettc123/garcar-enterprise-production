@@ -1,55 +1,34 @@
-# Garcar Enterprise — Lock Lifted
+# Garcar Enterprise — Live Offer
 
-**Status: OPEN — revenue surface live, architecture unfrozen**
+**Status: OPEN — public offer matches the landing page**
 
-Effective: 2026-09-03 12:45 CDT  
-Authority: founder directive to remove the cash lock.
-
-Primary revenue surface (live payments):
-- https://garrettc123.github.io/
-- Vercel project `garcar-revenue`
+Effective: 2026-09-08  
+Primary revenue surface: https://garrettc123.github.io/
 
 ## What is for sale right now
 
-| Offer | Price | Stripe Link |
-|-------|-------|-------------|
-| Contractor Lead Leak Audit | $47 | https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D |
-| Revenue Recovery Sprint | $497/wk | https://buy.stripe.com/aFa8wPdjfggO3QDcS743S1F |
-| AI Growth Engine | $1,497/mo | https://buy.stripe.com/9B63cv4MJ9Sq1Iv19p43S1E |
+The page a stranger sees is the offer. Do not quote retired SKUs as if they were on that page.
 
-## Operating Rule (current)
+| Offer | Price | How it is sold |
+|-------|-------|----------------|
+| Revenue System install | $2,000 | https://buy.stripe.com/7sYaEX1Ax1lU5YL3hx43S2e |
+| Maintain | $1,000 / month | Checkout issued after install |
 
-1. The August 31 cash lock is revoked.
-2. Frozen modules may resume: orchestration, NWU, CRM/SEO factory work, GitOps, vault, deploy mesh, product UI, acquisition systems.
-3. Revenue offers stay live. Fulfillment SLA for a paid $47 audit remains ≤48 hours.
-4. Dated `*_CASH_LOCK_*.md` files are historical records. They are not active policy.
-5. Work is no longer blocked on "three paid stranger audits." Priority is still decided by impact, not by volume of repos touched.
+Retired (not on the live landing as of 2026-09-08): $47 audit, $497/wk sprint, $1,497/mo engine. Those Payment Links may still exist in Stripe. They are not the public pitch.
 
-## What is no longer frozen
+## Canonical payment webhook
 
-- Multi-agent orchestration experiments
-- NWU protocol / verification work
-- CRM / SEO factory / churn predictor expansions
-- Stack documentation tied to architecture, not only to a live customer
-- CI/CD and deployment-mesh work required to run the above
+- Checkout events: `https://garcar-payments.garrettc123.workers.dev/stripe-webhook`
+- Grok connector only: subscription created/deleted
+- Duplicate and 503 destinations were disabled 2026-09-08
 
-## Immediate work after lift
+## Operating rule
 
-1. Keep the landing and Stripe links live.
-2. Resume In Progress Linear work that the lock had parked (secrets, UI, deploy mesh, acquisition).
-3. Deliver any paid audit in ≤48 hours using `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md`.
-4. Log payments and delivery outcomes.
-
-## Architecture
-
-API layer, agent orchestration, billing webhooks, money_flow_loop, RHNS, NEXUS, and related systems are first-class again. Use them for product, fulfillment, and scale — not only after a paid order exists.
-
-See `LOCK_LIFTED_2026-09-03.md` for the lift record and `REVENUE_STATUS.md` for current cash facts.
+1. If someone pays the live $2,000 link, log it the same hour and start fulfillment. Do not open the $47 audit template unless they actually bought that retired SKU.
+2. Do not charge any live link with card 4242 as if it were a customer.
+3. Dated `*_CASH_LOCK_*.md` files are history.
+4. MARS control-plane work stays draft until a human merges it.
 
 ## Founder
 
 Garrett Carrol · garrett@garcar.io · Grandview / Kopperl, TX
-
----
-
-**This repository is no longer subordinate to the cash lock.**
