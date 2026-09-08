@@ -1,4 +1,4 @@
-# CASH COMMAND — 2026-09-08
+# CASH COMMAND — 2026-09-08 (iterated)
 
 Buyer: real-estate team leads.
 Product: lead backup around the CRM they already have.
@@ -8,15 +8,22 @@ Fallback: $497 lead-export review, credited against $2,500.
 Do not sell MARS. Do not sell AI. Do not sell automation.
 Sell: new leads get called back before they go somewhere else.
 
-Page: https://garrettc123.github.io/
-One-pager: https://garrettc123.github.io/overview.html
-Payment link: send only after they give an email and say start. Do not invent a $2,500 Stripe button on the page until that link exists.
+- Storefront: https://garrettc123.github.io/
+- One-pager: https://garrettc123.github.io/overview.html
+- After they say start: https://garrettc123.github.io/checklist.html
+- Payment link: send only after they give an email and say start.
+
+`/contractors.html` and the old audit intake are retired. Do not send them.
 
 ## Goal of the call
 
-Not to explain the system. Get them to say some version of:
+Get them to say some version of: “Yeah, sometimes leads get missed.”
 
-> “Yeah, sometimes leads get missed.”
+## Voicemail (if they do not pick up)
+
+> “Hey [Name], this is Garrett. I help real-estate teams make sure a new lead still gets called when the first agent is in a showing. I’ll try you again. If email is easier: garrett@garcar.io.”
+
+Do not mention price on the voicemail.
 
 ## Start
 
@@ -58,7 +65,7 @@ Wait. You want: we try / the office checks / ISA / round robin / it depends / I�
 >
 > “Would it make sense to get that set up this week?”
 
-Stop. Let them answer.
+Stop.
 
 ## Yes / maybe
 
@@ -70,60 +77,25 @@ Stop. Let them answer.
 >
 > “What is the best email for the payment link and checklist?”
 
+Then send https://garrettc123.github.io/checklist.html
+
 ## Think about it
 
-> “That makes sense. What are you thinking about most—the price, whether you need it, or whether it will work with the CRM you already use?”
+> “What are you thinking about most—the price, whether you need it, or whether it will work with the CRM you already use?”
 
-Price:
-
-> “You are not paying for another monthly app. You are paying for me to set up the actual backup process so new leads do not get missed. If you are not ready for the full setup, I can first look through a recent lead export for $497 and show you where leads are being missed. If you move forward, I take that $497 off the $2,500.”
-
-Need:
-
-> “The easiest way to tell is to pull up your newest leads. Can you quickly see which ones have no call, no appointment, or no next task? If not, that is the exact problem the setup solves.”
-
-CRM:
-
-> “I work around the CRM you already use. I am not replacing it. The first step is just to look at how your current leads come in and who gets notified.”
-
-Follow Up Boss:
-
-> “That is actually good. Follow Up Boss keeps the leads in one place. I set up the backup rules around it so someone is responsible when the first agent does not act. The question is not whether the lead is in Follow Up Boss. The question is whether somebody called it and what happens if they did not.”
-
-Send info:
-
-> “Sure. I will send a simple one-page overview. Before I do, which matters more to you: making sure new leads get called fast, making sure agents follow up, or seeing which leads have been sitting too long?”
-
-Then send https://garrettc123.github.io/overview.html
+Price: not another monthly app. $497 export review credits to $2,500.
+Need: can they see which newest leads have no call, no appointment, no next task?
+CRM: work around what they have.
+Follow Up Boss: the lead being in FUB is not the same as somebody calling it.
+Send info: ask which matters more — speed, agent follow-up, or sitting leads — then send https://garrettc123.github.io/overview.html
 
 ## After-call email
 
 Subject: Simple lead backup system for [Team Name]
 
-> Hi [Name],
->
-> Good speaking with you.
->
-> I set up a simple backup system for real-estate teams so new leads do not get forgotten.
->
-> Here is what I set up:
->
-> - A new lead comes in from one source.
-> - One agent gets it first.
-> - They have a set amount of time to respond.
-> - If they do not, the backup person gets alerted.
-> - The team leader can see leads that have not been called or do not have a next step.
->
-> I work with the CRM you already use. I do not replace it.
->
-> The one-time setup is $2,500 and takes three business days after we have the CRM details and decide the backup rules.
->
-> If you want to move forward, reply “start” and I will send the payment link and short checklist.
->
-> — Garrett
-> Garcar Enterprise
+Use the same five bullets as the one-pager. $2,500. Three days. Reply “start.”
 
-Close the live call with:
+Live close:
 
 > “Do you want me to send the payment link and get the setup started?”
 
@@ -131,4 +103,4 @@ Close the live call with:
 
 - Charge any live link with card 4242 as if it were a customer
 - Quote roofing, HVAC, $47, $2,000+$1,000/mo, or MARS on this call
-- Create a new Stripe product from an agent session unless you explicitly ask for that write
+- Create a new Stripe product unless you explicitly ask for that write
