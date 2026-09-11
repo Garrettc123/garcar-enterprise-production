@@ -1,40 +1,32 @@
 # Garcar Enterprise — Live Revenue Status
 
-**Date:** 2026-09-03 12:45 CDT (cash lock lifted by founder directive)
+**Date:** 2026-09-11 10:10 CDT
 
-## Policy change
+## What is public right now
 
-The August 31 lock is revoked. Public repos and architecture work are unfrozen. Revenue surface stays live.
+- Storefront: https://garrettc123.github.io/
+- Offer: DFW / Johnson County real-estate lead backup
+- Price: $2,500 one time, three business days
+- Fallback: $497 export review, credited off $2,500
+- Start path: form on the homepage emails garrett@garcar.io. Payment link is sent after they say start.
+- Retired: /contractors.html redirects home. Do not send the $47 contractor SKU.
 
-## Last verified cash facts (as of 2026-08-31 lock file; re-verify before treating as current)
+## Cash facts this hour
 
-- Storefront that loads: https://garrettc123.github.io/
-- Public offer still live: $47 Contractor Lead Leak Audit — https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D
-- HubSpot deals (last lock snapshot): 0
-- PAYMENT_LOG stranger rows (last lock snapshot): 0
-- Available balance last verified (prior lock): **-$53.30 USD** — treat as stale until a fresh Stripe pull
-- Public repos: 170+. Freeze condition removed 2026-09-03.
+- PAYMENT_LOG stranger rows: 0
+- HubSpot closed-won: 0
+- Chime checking ****5784: -$5.00
+- Chime savings ****6509: $0.41
+- Stripe connector: needs re-auth. Last known stranger charges: 0
+- Orphan SKU still live at Stripe, not linked from the page: https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D ($47 Starter Audit)
 
-## What is LIVE (keep)
+## Still forbidden
 
-| Offer | Price | Public link |
-|-------|-------|-------------|
-| Contractor Lead Leak Audit | $47 | https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D |
-| Revenue Recovery Sprint | $497/wk | https://buy.stripe.com/aFa8wPdjfggO3QDcS743S1F |
-| AI Growth Engine | $1,497/mo | https://buy.stripe.com/9B63cv4MJ9Sq1Iv19p43S1E |
+- New repo, new Vercel project, new payment link unless the founder writes one
+- Self-checkout / card 4242
+- Emailing HubSpot VCs, slot sites, or SaaS rows as if they were team leads
+- Quoting $47, HVAC, roofing, MARS, or AI on the live offer
 
-Sprint may appear on the public page. Conversion still prefers audit → sprint after delivery and a reply.
+## Next cash move
 
-## What the lock no longer forbids
-
-1. Touching Vercel, CI, and deploy mesh.
-2. Agent / swarm / genome / RHNS / NWU work that is not a paid-order fulfillment task.
-3. New modules, dashboards, and acquisition systems.
-
-## What still matters after the lift
-
-1. Deliver every paid audit in ≤48h using `fulfillment/LEAD_LEAK_AUDIT_TEMPLATE.md`.
-2. Do not use live-mode self-checkout (no 4242) as a substitute for a stranger payment.
-3. Log every payment and every delivery outcome.
-
-Architecture is unfrozen. Cash facts still have to be re-verified.
+Send the eight written drafts in Gmail. Log a row the same hour a stranger pays.
