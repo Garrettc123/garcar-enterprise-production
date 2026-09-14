@@ -1,11 +1,14 @@
 name: Auto Approve & Merge
 
-# ADM human-merge gate: only PRs labeled "automerge" may auto-merge.
+# ADM human-merge gate (hardened):
+# - Requires BOTH labels: automerge AND founder-ok
+# - Never auto-merges draft PRs
+# - Never auto-merges titles starting with [CRF] unless founder-ok is present
 # Default PRs stay manual (founder owns merge).
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, labeled]
+    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review]
 
 permissions:
   contents: write
@@ -14,8 +17,21 @@ permissions:
 jobs:
   auto-approve-merge:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.labels.*.name, 'automerge')
+    # Dual-label gate. Single automerge bit is not enough.
+    if: >
+      github.event.pull_request.draft == false
+      && contains(github.event.pull_request.labels.*.name, 'automerge')
+      && contains(github.event.pull_request.labels.*.name, 'founder-ok')
     steps:
+      - name: Block CRF titles without explicit founder-ok (defense in depth)
+        run: |
+          title="${{ github.event.pull_request.title }}"
+          echo "PR title: $title"
+          # founder-ok already required by job if; this step documents intent in logs
+          if [[ "$title" == \[CRF\]* ]]; then
+            echo "CRF-titled PR — proceeding only because founder-ok + automerge are both present"
+          fi
+
       - name: Approve PR
         uses: hmarr/auto-approve-action@v3
         with:
@@ -25,7 +41,7 @@ jobs:
         uses: pascalgn/automerge-action@v0.15.6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MERGE_LABELS: "automerge"
+          MERGE_LABELS: "automerge,founder-ok"
           MERGE_METHOD: squash
           MERGE_DELETE_BRANCH: true
           UPDATE_METHOD: rebase
