@@ -1,18 +1,9 @@
+"""GARCAR autonomous runtime.
+
+The runtime boots the complete registered capability lattice while keeping
+external side effects adapter-gated. Revenue automation remains the first
+production workload; the rest of the inventory is addressable on demand.
 """
-Garcar Enterprise — Autonomous Agent Runtime
-============================================
-This is the process that never sleeps.
-
-On every cycle it:
-1. Deploys the highest-ROI revenue agents
-2. Executes real actions through the RevenueEngine
-3. Advances prospects through the Money Flow Loop
-4. Surfaces conversion opportunities for real leads
-5. Closes loops and feeds new attention
-
-No human required. No more theory.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -25,29 +16,15 @@ from .revenue_engine import RevenueEngine
 
 logger = logging.getLogger("garcar.runtime")
 
-# Highest-ROI agents that are allowed to run autonomously
 REVENUE_AGENTS = [
-    "DealCloser",
-    "PricingDynamo",
-    "DynamicPricingAI",
-    "LeadNurtureBot",
-    "CheckoutOptimizer",
-    "AdRevenueOptimizer",
-    "RetentionEngine",
-    "FraudDetectorEC",
-    "PersonalizationBot",
-    "RevenuePredictor",
-    "CommunityManager",
-    "InfluencerMatch",
+    "DealCloser", "PricingDynamo", "DynamicPricingAI", "LeadNurtureBot",
+    "CheckoutOptimizer", "AdRevenueOptimizer", "RetentionEngine",
+    "FraudDetectorEC", "PersonalizationBot", "RevenuePredictor",
+    "CommunityManager", "InfluencerMatch",
 ]
 
 
 class AutonomousRuntime:
-    """
-    The permanent background organism.
-    Starts with the platform. Runs forever.
-    """
-
     def __init__(self, db_session_factory=None, cycle_seconds: int = 90):
         self.orchestrator = AgentOrchestrator()
         self.engine = RevenueEngine(db_session_factory=db_session_factory)
@@ -59,22 +36,15 @@ class AutonomousRuntime:
         self.total_cycles = 0
 
     async def start(self):
-        """Boot the lattice and begin the autonomous revenue cycle."""
         if self.running:
-            logger.warning("Runtime already running")
             return
-
-        # Deploy the money-makers first
-        for name in REVENUE_AGENTS:
-            try:
-                self.orchestrator.deploy(name, context={"mode": "autonomous_revenue"})
-            except Exception as e:
-                logger.warning(f"Could not deploy {name}: {e}")
-
-        self.running = True
+        # Full-scale means all registered identities are online/addressable.
+        # It does NOT mean every agent receives external side-effect access.
+        result = self.orchestrator.deploy_all()
+        logger.info("FULL-SCALE AGENT LATTICE ONLINE: %s agents", result.get("deployed_count"))
         self.started_at = datetime.now(timezone.utc)
+        self.running = True
         self.task = asyncio.create_task(self._loop())
-        logger.info("AUTONOMOUS REVENUE RUNTIME ONLINE — agents are now hunting")
 
     async def stop(self):
         self.running = False
@@ -87,56 +57,37 @@ class AutonomousRuntime:
         logger.info("Autonomous runtime stopped")
 
     async def _loop(self):
-        """The never-ending revenue cycle."""
         while self.running:
             try:
                 await self._execute_cycle()
             except Exception as e:
-                logger.error(f"Cycle error (continuing): {e}")
+                logger.error("Cycle error (continuing): %s", e)
             await asyncio.sleep(self.cycle_seconds)
 
     async def _execute_cycle(self):
-        """One full autonomous revenue pass."""
         self.total_cycles += 1
         self.engine.cycle_count = self.total_cycles
         self.last_cycle_at = datetime.now(timezone.utc)
+        logger.info("=== REVENUE CYCLE %s ===", self.total_cycles)
 
-        logger.info(f"=== REVENUE CYCLE {self.total_cycles} ===")
-
-        # 1. Hunt new attention (now persists real Lead records)
         hunt = self.engine.hunt_and_capture(source=f"autonomous_cycle_{self.total_cycles}")
-        logger.info(f"Hunt result: {hunt.get('status') or hunt.get('advanced_to') or hunt.get('db_persisted') or 'ok'}")
-
-        # 2. Extract real identifiers
         prospect_id = None
-        lead_id = None
         email = None
         if isinstance(hunt, dict):
             prospect_id = hunt.get("prospect_id") or hunt.get("id")
-            lead_id = hunt.get("lead_id")
             email = hunt.get("email")
             if not prospect_id and "prospect" in hunt:
                 p = hunt["prospect"]
                 prospect_id = p.get("id")
-                lead_id = p.get("lead_id") or lead_id
                 email = p.get("email") or email
 
         if prospect_id:
-            # Advance through the critical early stages
             for stage in ["trust", "trial"]:
-                adv = self.engine.advance_pipeline(str(prospect_id), stage)
-                logger.info(f"Advanced {prospect_id} → {stage}: {adv.get('advanced_to')}")
-
-            # Only surface conversion if we have a real-looking email
+                self.engine.advance_pipeline(str(prospect_id), stage)
             if email and not email.endswith("@garcar.internal"):
                 self.engine.force_conversion_opportunity(email=email, plan="starter")
-            else:
-                logger.info("Skipping fake conversion opportunity — no real email yet")
 
-        # 3. Churn / retention pass (always useful)
         self.engine.run_churn_scan()
-
-        logger.info(f"Cycle {self.total_cycles} complete — {len(self.engine.revenue_events)} total events")
 
     def status(self) -> Dict[str, Any]:
         return {
@@ -145,13 +96,13 @@ class AutonomousRuntime:
             "last_cycle_at": self.last_cycle_at.isoformat() if self.last_cycle_at else None,
             "total_cycles": self.total_cycles,
             "cycle_seconds": self.cycle_seconds,
-            "deployed_revenue_agents": list(self.orchestrator.deployed.keys()),
+            "agent_lattice": self.orchestrator.status(),
+            "revenue_agents": [n for n in REVENUE_AGENTS if self.orchestrator.control.get(n)],
             "engine": self.engine.get_stats(),
-            "message": "Agents are live and executing revenue actions." if self.running else "Runtime stopped",
+            "message": "Full agent capability lattice is online; revenue execution is governed separately.",
         }
 
 
-# Global singleton used by the API
 _runtime: Optional[AutonomousRuntime] = None
 
 
