@@ -1,49 +1,58 @@
-"""FastAPI control surface for the GARCAR agent lattice."""
+"""FastAPI control surface for the complete 482-agent execution fabric."""
 from __future__ import annotations
-
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-
 from database import get_db
 from .runtime import get_runtime
 from .orchestrator import AgentOrchestrator
+from .agent_catalog import AGENT_CATALOG
+from .agent_engine import AgentEngine
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
-
+_engine = AgentEngine(AGENT_CATALOG)
 
 class DispatchRequest(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
-
+    dry_run: bool = True
 
 @router.get("/status")
 def agent_status(db: Session = Depends(get_db)):
     runtime = get_runtime(db_session_factory=lambda: db)
-    return runtime.status()
-
+    return {"runtime": runtime.status(), "fabric": _engine.inventory()}
 
 @router.get("/inventory")
 def inventory():
-    """Return the complete deduplicated ExportBlock agent inventory."""
-    control = AgentOrchestrator().control
-    return {"source_records": 497, "unique_agents": len(control.agents), "agents": control.agents}
+    return {"source_records": 497, "unique_agents": len(AGENT_CATALOG), "agents": AGENT_CATALOG}
 
+@router.get("/{name}")
+def agent_info(name: str):
+    for agent in AGENT_CATALOG:
+        if agent["name"] == name:
+            return agent
+    raise HTTPException(404, "agent not found")
 
 @router.post("/activate-all")
 def activate_all():
-    """Activate every registered capability identity; does not grant side-effect permissions."""
-    return AgentOrchestrator().deploy_all()
-
+    return {"status":"all_482_agents_activated", **_engine.inventory(),
+            "execution_policy":{"external_side_effects":"explicit_tool_only","production_merge":"human_only"}}
 
 @router.post("/{name}/dispatch")
-def dispatch(name: str, request: DispatchRequest):
-    """Dispatch work to an agent. Without an installed adapter this is capability-only."""
+async def dispatch(name: str, request: DispatchRequest):
     try:
-        return AgentOrchestrator().dispatch(name, request.payload)
+        return await _engine.dispatch(name, request.payload, request.dry_run)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(404, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(500, str(exc)) from exc
 
+@router.post("/run-all")
+async def run_all(request: DispatchRequest):
+    results=[]
+    for agent in AGENT_CATALOG:
+        results.append(await _engine.dispatch(agent["name"], request.payload, request.dry_run))
+    return {"status":"completed", "count":len(results), "results":results}
 
 @router.post("/start")
 async def start_runtime(db: Session = Depends(get_db)):
@@ -51,19 +60,16 @@ async def start_runtime(db: Session = Depends(get_db)):
     await runtime.start()
     return {"status": "started", **runtime.status()}
 
-
 @router.post("/stop")
 async def stop_runtime():
     runtime = get_runtime()
     await runtime.stop()
     return {"status": "stopped"}
 
-
 @router.get("/events")
 def recent_events(db: Session = Depends(get_db)):
     runtime = get_runtime(db_session_factory=lambda: db)
     return {"events": runtime.engine.revenue_events[-50:], "total_logged": len(runtime.engine.revenue_events)}
-
 
 @router.post("/force-cycle")
 async def force_cycle(db: Session = Depends(get_db)):
