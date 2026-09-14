@@ -1,8 +1,0 @@
-{
-  "version": "1.0.0",
-  "source": "ExportBlock",
-  "unique_agents": 482,
-  "records": 497,
-  "execution_contract": "validate -> reason -> execute -> verify -> telemetry",
-  "agents": "LOAD_FROM_EXPORTBLOCK_REGISTRY"
-}
