@@ -1,0 +1,56 @@
+{
+  "schema_version": "garcar-agent-registry/v1",
+  "source_archive": "ExportBlock-d880c93e-4bae-4b32-a770-2bf973a1be5c.zip",
+  "source_sha256": "81830196689bdc4e81c1b8d4de4e5e088f4bd59ad6d58dacb7f9c08cc648bd81",
+  "agent_count": 497,
+  "type_counts": {
+    "Specialist": 175,
+    "Planner": 74,
+    "Reactive": 69,
+    "Evaluator": 59,
+    "Autonomous": 57,
+    "Orchestrator": 37,
+    "Conversational": 26
+  },
+  "status_counts": {
+    "Deployed": 414,
+    "Testing": 42,
+    "Building": 21,
+    "Tuning": 20
+  },
+  "vertical_count": 19,
+  "duplicate_agent_names": [
+    "DataQualityBot",
+    "MicroInteractionBot",
+    "TenantScreener",
+    "SyntheticDataGen",
+    "LeaseAnalyzer",
+    "AutoMLPilot",
+    "MLOpsManager",
+    "ShippingOptimizer",
+    "ComparablesFinder",
+    "TimeSeriesBot",
+    "DataCleanerBot",
+    "DesignOpsManager",
+    "DataLineageBot",
+    "LogisticsOptimizer",
+    "DataCatalogBot"
+  ],
+  "integration": {
+    "system": "Garcar Enterprise Autonomous Business Operating System",
+    "role": "agent capability registry / inventory layer",
+    "crf_link": "Registry identity can be attached to execution telemetry and used by CRF for failure correlation and governed repair routing.",
+    "runtime_state_mapping": {
+      "Deployed": "available",
+      "Testing": "test_only",
+      "Building": "development_only",
+      "Tuning": "evaluation_only"
+    },
+    "governance": {
+      "production_merge": "human_only",
+      "main_writes": "forbidden_from_repair_worker",
+      "secrets_changes": "forbidden",
+      "workflow_changes": "forbidden_without_explicit_review"
+    }
+  }
+}
