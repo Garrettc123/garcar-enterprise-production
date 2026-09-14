@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime, timezone
 import logging
@@ -20,6 +20,12 @@ class LeadCaptureRequest(BaseModel):
     email: EmailStr
     name: Optional[str] = None
     source: Optional[str] = "website"
+    # Enrichment fields for DFW / real-estate offer (stored in Lead.notes)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    team_name: Optional[str] = Field(default=None, max_length=255)
+    market: Optional[str] = Field(default=None, max_length=120)
+    crm: Optional[str] = Field(default=None, max_length=120)
+    notes: Optional[str] = None
 
 
 class LeadResponse(BaseModel):
@@ -28,20 +34,58 @@ class LeadResponse(BaseModel):
     name: Optional[str]
     source: str
     status: str
+    notes: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
 
 
+def _enrichment_block(req: LeadCaptureRequest) -> Optional[str]:
+    """Fold optional RE fields into a durable notes block. No schema migration."""
+    parts: list[str] = []
+    if req.phone:
+        parts.append(f"phone={req.phone.strip()}")
+    if req.team_name:
+        parts.append(f"team={req.team_name.strip()}")
+    if req.market:
+        parts.append(f"market={req.market.strip()}")
+    if req.crm:
+        parts.append(f"crm={req.crm.strip()}")
+    if req.notes:
+        parts.append(req.notes.strip())
+    if not parts:
+        return None
+    return " | ".join(parts)
+
+
+def _merge_notes(existing: Optional[str], incoming: Optional[str]) -> Optional[str]:
+    if not incoming:
+        return existing
+    if not existing:
+        return incoming
+    if incoming in existing:
+        return existing
+    return f"{existing}\n{incoming}"
+
+
 @router.post("/capture", response_model=LeadResponse)
 def capture_lead(req: LeadCaptureRequest, db: Session = Depends(get_db)):
     """Public endpoint — captures a lead from landing page or API."""
+    enrichment = _enrichment_block(req)
     existing = db.query(Lead).filter(Lead.email == req.email).first()
     if existing:
-        # Update source if different, don't create duplicate
+        # Update sparse fields; never create a duplicate email row
+        changed = False
         if req.name and not existing.name:
             existing.name = req.name
+            changed = True
+        if enrichment:
+            merged = _merge_notes(existing.notes, enrichment)
+            if merged != existing.notes:
+                existing.notes = merged
+                changed = True
+        if changed:
             db.commit()
             db.refresh(existing)
         return existing
@@ -49,7 +93,8 @@ def capture_lead(req: LeadCaptureRequest, db: Session = Depends(get_db)):
     lead = Lead(
         email=req.email,
         name=req.name,
-        source=req.source,
+        source=req.source or "website",
+        notes=enrichment,
     )
     db.add(lead)
     db.commit()
