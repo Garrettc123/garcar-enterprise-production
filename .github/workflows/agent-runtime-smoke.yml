@@ -1,0 +1,21 @@
+name: Agent Runtime Smoke
+on:
+  pull_request:
+    paths: ['runtime/**', 'docker-compose.agent-runtime.yml', '.github/workflows/agent-runtime-smoke.yml']
+  push:
+    branches: [main]
+    paths: ['runtime/**', 'docker-compose.agent-runtime.yml']
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r runtime/requirements.txt
+      - run: uvicorn runtime.app:app --host 127.0.0.1 --port 8000 &
+      - run: |
+          sleep 3
+          curl --fail http://127.0.0.1:8000/healthz
+          curl --fail http://127.0.0.1:8000/metrics
+          curl --fail -X POST http://127.0.0.1:8000/runs/test
