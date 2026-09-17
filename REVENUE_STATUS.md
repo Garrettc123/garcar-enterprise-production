@@ -1,28 +1,30 @@
 # Garcar Enterprise — Live Revenue Status
 
-**Date:** 2026-09-17 02:56 CDT
+**Date:** 2026-09-17 02:57 CDT
 
-## Public surface — ALL GREEN
+## Public surface — GREEN
 
-| Asset | Status |
-|-------|--------|
-| https://garrettc123.github.io/ | 200 |
-| Pay $497 | 200 · reply → gwc2780@gmail.com |
-| Pay $2,500 | 200 · reply → gwc2780@gmail.com |
+| Asset | HTTP |
+|-------|------|
+| Storefront | 200 |
+| Overview | 200 |
+| Checklist | 200 |
+| dfw-trades | 200 |
+| Pay $497 | 200 |
+| Pay $2,500 | 200 |
 
-## CRM (HubSpot portal 247022078)
+## Cash
 
-| Object | ID | Notes |
-|--------|-----|-------|
-| Contact | 553884236478 | Garrett Carrol / gwc2780@gmail.com |
-| Deal | 349116250825 | Operator — Revenue Control Plane Anchor |
+- **Stranger paid: 0**
+- Recent livemode charges: failed (4242 test card in live mode + insufficient funds)
+- Do not use 4242 for proof
 
-## Autonomous stack
+## CRM
 
-- `garcar-revenue-os` code-complete for evidence, loop, webhook, CRM contract, onboarding drafts
-- **Still need operator:** Supabase APPLY_ALL.sql + wrangler/Vercel edge deploy
-- Vercel team still 402 suspended until billing reactivated
+- Contact: 553884236478 gwc2780@gmail.com
+- Deal: 349116250825 Operator anchor
 
-## Cash rule
+## Stack
 
-When a stranger pays MLS-497 or LB-2500, fulfill same day from `src/fulfillment/templates.ts` and log evidence hop `support.delivered`.
+- garcar-revenue-os **v0.3.0** — agents, payment log, prospect briefs, alerts
+- Operator gates: Supabase SQL, edge deploy (Vercel 402 / wrangler), Stripe webhook URL
