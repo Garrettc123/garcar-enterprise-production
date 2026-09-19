@@ -1,13 +1,11 @@
 """
 Garcar Enterprise — Agent Network
 =================================
-The living lattice of 341 specialized, autonomous, reactive, and orchestrating agents.
+The living lattice of specialized, autonomous agents.
 
-This package is the permanent expansion of the original deployment signal.
+Heavy orchestrator imports are lazy so modules like sales_fleet can run
+without requiring the full ExportBlock inventory on every import.
 """
-
-from .registry import AGENTS, get_agent, list_by_vertical, list_by_type
-from .orchestrator import AgentOrchestrator
 
 __all__ = [
     "AGENTS",
@@ -16,3 +14,21 @@ __all__ = [
     "list_by_type",
     "AgentOrchestrator",
 ]
+
+
+def __getattr__(name: str):
+    if name in ("AGENTS", "get_agent", "list_by_vertical", "list_by_type"):
+        from .registry import AGENTS, get_agent, list_by_vertical, list_by_type
+
+        mapping = {
+            "AGENTS": AGENTS,
+            "get_agent": get_agent,
+            "list_by_vertical": list_by_vertical,
+            "list_by_type": list_by_type,
+        }
+        return mapping[name]
+    if name == "AgentOrchestrator":
+        from .orchestrator import AgentOrchestrator
+
+        return AgentOrchestrator
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
