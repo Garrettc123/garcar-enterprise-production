@@ -1,0 +1,27 @@
+name: Revenue Pain Cycle
+
+on:
+  schedule:
+    - cron: "15 */4 * * *"
+  workflow_dispatch:
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run autonomous revenue pain cycle
+        env:
+          PYTHONPATH: .
+        run: python -m agents.revenue_pain_system.engine
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revenue-pain-cycle
+          path: |
+            agents/revenue_pain_system/LATEST_CYCLE.json
+            agents/revenue_pain_system/pain_ledger.json
+          if-no-files-found: ignore
