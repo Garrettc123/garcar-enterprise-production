@@ -1,0 +1,65 @@
+name: Autonomous Sales Fleet
+
+on:
+  schedule:
+    - cron: "5 14 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      sku:
+        description: "SKU key (47 | 497 | 2500)"
+        required: false
+        default: "47"
+      limit:
+        description: "Max leads this run"
+        required: false
+        default: "15"
+      live:
+        description: "Set true to send email (requires RESEND_API_KEY)"
+        required: false
+        default: "false"
+
+jobs:
+  fleet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Storefront + payments edge must be up
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garrettc123.github.io/" || echo "000")
+          echo "Storefront HTTP $code"
+          pay=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garcar-payments.garrettc123.workers.dev/health" || echo "000")
+          echo "Payments edge HTTP $pay"
+          if [ "$code" != "200" ]; then
+            echo "::error::Storefront down — abort fleet"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run sales fleet
+        env:
+          FLEET_DRY_RUN: ${{ github.event.inputs.live == 'true' && 'false' || 'true' }}
+          GARCAR_DEFAULT_SKU: ${{ github.event.inputs.sku || '47' }}
+          FLEET_MAX_LEADS: ${{ github.event.inputs.limit || '15' }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+          FLEET_LEAD_JSON: ${{ secrets.FLEET_LEAD_JSON }}
+          GARCAR_PAYMENTS_URL: https://garcar-payments.garrettc123.workers.dev
+          PYTHONPATH: .
+        run: |
+          python -m agents.sales_fleet.fleet \
+            --sku "${GARCAR_DEFAULT_SKU}" \
+            --limit "${FLEET_MAX_LEADS}" \
+            $( [ "$FLEET_DRY_RUN" = "false" ] && echo --live || true )
+
+      - name: Upload ledger artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-ledger
+          path: agents/sales_fleet/fleet_ledger.json
+          if-no-files-found: ignore
