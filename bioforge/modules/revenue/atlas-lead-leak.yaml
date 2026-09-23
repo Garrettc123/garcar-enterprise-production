@@ -1,0 +1,36 @@
+id: atlas-lead-leak
+family: Revenue
+version: 1.0.0
+display_name: ATLAS Lead Leak Organ
+purpose: Turn one Johnson County trade shop into a $47 map and a gated $497/wk sprint without silent sends.
+policy:
+  forbidden:
+    - billing.charge.test4242
+    - outreach.send.unguarded
+rhns:
+  gate: cmc
+  commit_required_for:
+    - outreach.send
+    - stripe.charge
+    - fulfill.email_client
+pricing:
+  sku: GC-AUDIT-47
+  ladder:
+    - 47 audit
+    - 497 weekly workflow install
+skeleton_hops:
+  - intake
+  - enrichment
+  - outreach
+  - proposal
+  - checkout
+  - crm
+  - fulfillment
+  - reporting
+certification:
+  attach: pass
+  detach: pass
+  rhns_gate: pass
+  audit_write: pass
+  sku: pass
+  walking_skeleton: pass
