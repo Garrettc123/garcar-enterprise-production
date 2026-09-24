@@ -1,8 +1,17 @@
 /**
- * Garcar Stripe Webhook → audits.status
- * Supabase Edge Function — Continuum Grid v1
+ * Garcar Stripe Webhook → audits / retainers / garcar_events
+ * Supabase Edge Function — Continuum Grid v1 (Security Hardened)
+ *
  * Deploy: supabase functions deploy stripe-webhook --no-verify-jwt
  * Secrets: STRIPE_WEBHOOK_SECRET, STRIPE_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
+ *
+ * Security:
+ * - Raw body via req.text()
+ * - Missing Stripe-Signature → 400 before any work
+ * - constructEvent (HMAC + 300s timestamp tolerance)
+ * - Event type allowlist
+ * - No payload / secret logging
+ * - Idempotent insert into garcar_events (use unique constraint on event id in production)
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -21,17 +30,69 @@ const supabase = createClient(
 
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || "";
 
+const ALLOWED_EVENTS = new Set([
+  "checkout.session.completed",
+  "payment_intent.succeeded",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "invoice.paid",
+  "invoice.payment_failed",
+]);
+
+function safeLog(msg: string, meta: Record<string, unknown> = {}) {
+  const safe = { ...meta };
+  delete safe.payload;
+  delete safe.body;
+  delete safe.signature;
+  console.log(`[stripe-webhook] ${msg}`, safe);
+}
+
 serve(async (req) => {
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json", Allow: "POST" },
+    });
+  }
+
+  if (!webhookSecret || !Deno.env.get("STRIPE_SECRET_KEY")) {
+    safeLog("Webhook not configured");
+    return new Response(JSON.stringify({ error: "Webhook not configured" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const signature = req.headers.get("stripe-signature");
-  if (!signature) return new Response("Missing signature", { status: 400 });
+  if (!signature) {
+    safeLog("Missing Stripe-Signature");
+    return new Response(JSON.stringify({ error: "Missing Stripe-Signature" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const body = await req.text();
   let event: Stripe.Event;
+
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
-    console.error("Webhook signature verification failed:", err.message);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    const message = err instanceof Error ? err.message : String(err);
+    safeLog("Signature verification failed", { error: message });
+    return new Response(
+      JSON.stringify({ error: "Webhook signature verification failed" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (!ALLOWED_EVENTS.has(event.type)) {
+    safeLog("Ignored unallowed event", { type: event.type, id: event.id });
+    return new Response(JSON.stringify({ received: true, ignored: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -58,23 +119,29 @@ serve(async (req) => {
         break;
       }
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        safeLog("Unhandled allowed type", { type: event.type });
     }
 
+    // Durable event log — enforce unique on payload->>'id' or a dedicated column in production
     await supabase.from("garcar_events").insert({
       event_type: `stripe.${event.type.replace(/\./g, "_")}`,
       source_system: "stripe-webhook",
       payload: { id: event.id, type: event.type },
-      processed: false,
+      processed: true,
     });
 
-    return new Response(JSON.stringify({ received: true }), {
+    safeLog("Processed", { type: event.type, id: event.id });
+    return new Response(JSON.stringify({ received: true, event_id: event.id }), {
       headers: { "Content-Type": "application/json" },
       status: 200,
     });
   } catch (err) {
-    console.error("Handler error:", err);
-    return new Response(`Handler Error: ${err.message}`, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    safeLog("Handler error", { type: event.type, id: event.id, error: message });
+    return new Response(JSON.stringify({ error: "Handler error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });
 
@@ -82,7 +149,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const email = session.customer_details?.email || session.customer_email;
   const paymentIntent = session.payment_intent as string | null;
   if (!email) {
-    console.warn("No email on checkout session", session.id);
+    safeLog("No email on checkout session", { sessionId: session.id });
     return;
   }
   const auditId = session.metadata?.audit_id;
@@ -97,7 +164,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", auditId);
-    if (error) console.error("Update audit failed:", error);
+    if (error) safeLog("Update audit failed", { error: error.message });
   } else {
     const { error } = await supabase.from("audits").insert({
       customer_email: email,
@@ -109,7 +176,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       started_at: new Date().toISOString(),
       scope: session.metadata?.scope || "Agent Reliability Audit — one workflow",
     });
-    if (error) console.error("Insert audit failed:", error);
+    if (error) safeLog("Insert audit failed", { error: error.message });
   }
 }
 
