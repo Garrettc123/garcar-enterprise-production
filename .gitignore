@@ -5,3 +5,7 @@ __pycache__/
 venv/
 node_modules/
 .DS_Store
+
+# GAR-530 approval store and audit log: never commit
+approvals/*
+!approvals/README.md
