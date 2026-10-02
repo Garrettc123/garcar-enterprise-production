@@ -12,6 +12,13 @@ import stripe
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from datetime import datetime
+try:  # GAR-530 approval gate (repo-root package)
+    from approval_gate import ApprovalRequired, require_approval
+except ImportError:  # started from inside crm/: make the repo root importable
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+    from approval_gate import ApprovalRequired, require_approval
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -71,8 +78,16 @@ async def create_linear_project(client_name: str):
     return resp.json()
 
 
-async def send_welcome_email(client_email: str, client_name: str):
-    """Send welcome email via Mailchimp Transactional (Mandrill) or SMTP."""
+async def send_welcome_email(client_email: str, client_name: str, approval_id: str | None = None):
+    """Send welcome email via Mailchimp Transactional (Mandrill) or SMTP.
+
+    GAR-530: gated now (still a stub) so it can never go live without approval.
+    """
+    try:
+        require_approval("send.email", approval_id, to=client_email,
+                         site="crm.onboarding_pipeline.send_welcome_email")
+    except ApprovalRequired as exc:
+        return {"status": "refused", "to": client_email, "reason": f"approval_required:{exc.reason}"}
     # Implementation: use your preferred email service
     # Placeholder returns success for webhook flow
     return {

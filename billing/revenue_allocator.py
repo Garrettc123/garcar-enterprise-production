@@ -6,6 +6,15 @@ import os
 import stripe
 from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
+from typing import Optional
+
+try:  # GAR-530 approval gate (repo-root package)
+    from approval_gate import ApprovalRequired, require_approval
+except ImportError:  # started from inside billing/: make the repo root importable
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+    from approval_gate import ApprovalRequired, require_approval
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
@@ -29,6 +38,7 @@ class PayoutEvent(BaseModel):
     amount_cents: int
     currency: str = "usd"
     source_description: str = ""
+    approval_id: Optional[str] = None  # GAR-530: Garrett-issued money.transfer approval
 
 
 def allocate(amount_cents: int) -> dict:
@@ -39,8 +49,15 @@ def allocate(amount_cents: int) -> dict:
     }
 
 
-def execute_allocation(amount_cents: int, currency: str = "usd") -> dict:
-    """Execute Stripe transfers per allocation rules."""
+def execute_allocation(amount_cents: int, currency: str = "usd",
+                       approval_id: Optional[str] = None) -> dict:
+    """Execute Stripe transfers per allocation rules.
+
+    GAR-530: the whole allocation needs one Garrett-issued ``money.transfer`` approval
+    whose cap covers ``amount_cents``. Raises ApprovalRequired otherwise.
+    """
+    require_approval("money.transfer", approval_id, amount_cents=amount_cents, currency=currency,
+                     site="billing.revenue_allocator.execute_allocation")
     splits = allocate(amount_cents)
     results = {}
     for bucket, cents in splits.items():
@@ -79,7 +96,10 @@ async def allocate_endpoint(event: PayoutEvent):
 @alloc_app.post("/allocate/execute")
 async def allocate_execute(event: PayoutEvent):
     """Actually execute transfers. Only call after Stripe payout confirmed."""
-    results = execute_allocation(event.amount_cents, event.currency)
+    try:
+        results = execute_allocation(event.amount_cents, event.currency, approval_id=event.approval_id)
+    except ApprovalRequired as exc:
+        raise HTTPException(status_code=403, detail=f"approval_required:{exc.reason}")
     return {"total_cents": event.amount_cents, "results": results}
 
 

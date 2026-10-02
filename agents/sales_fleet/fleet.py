@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from approval_gate import ApprovalRequired, require_approval  # GAR-530
+
 from . import config
 from .leads import Lead, source_leads
 
@@ -107,6 +109,12 @@ def send_email(packet: OutreachPacket) -> OutreachPacket:
         return packet
     if not config.RESEND_API_KEY:
         packet.send_error = "resend_not_configured"
+        return packet
+    try:  # GAR-530: live sends need FLEET_APPROVAL_ID covering this recipient
+        require_approval("send.email", config.APPROVAL_ID, to=packet.lead.email,
+                         site="agents.sales_fleet.fleet.send_email")
+    except ApprovalRequired as exc:
+        packet.send_error = f"approval_required:{exc.reason}"
         return packet
     try:
         import urllib.request

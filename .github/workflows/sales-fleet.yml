@@ -14,9 +14,17 @@ on:
         required: false
         default: "15"
       live:
-        description: "Set true to send email (requires RESEND_API_KEY)"
+        description: "Set true to send email (requires RESEND_API_KEY and an approval)"
         required: false
         default: "false"
+      approval_id:
+        description: "GAR-530: Garrett-issued send.email approval ID (required when live=true)"
+        required: false
+        default: ""
+      approval_record:
+        description: "GAR-530: signed record line from `approval_gate.cli grant --print-record` (required when live=true)"
+        required: false
+        default: ""
 
 jobs:
   fleet:
@@ -39,6 +47,19 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: GAR-530 approval gate (live runs need Garrett's approval)
+        if: github.event.inputs.live == 'true'
+        env:
+          APPROVAL_ID: ${{ github.event.inputs.approval_id }}
+          APPROVAL_RECORD: ${{ github.event.inputs.approval_record }}
+        run: |
+          if [ -z "$APPROVAL_ID" ] || [ -z "$APPROVAL_RECORD" ]; then
+            echo "::error::live=true needs approval_id and approval_record (python -m approval_gate.cli grant ... --print-record)"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/approvals"
+          printf '%s\n' "$APPROVAL_RECORD" > "$RUNNER_TEMP/approvals/approvals.jsonl"
+
       - name: Run sales fleet
         env:
           FLEET_DRY_RUN: ${{ github.event.inputs.live == 'true' && 'false' || 'true' }}
@@ -50,6 +71,9 @@ jobs:
           FLEET_LEAD_JSON: ${{ secrets.FLEET_LEAD_JSON }}
           GARCAR_PAYMENTS_URL: https://garcar-payments.garrettc123.workers.dev
           PYTHONPATH: .
+          FLEET_APPROVAL_ID: ${{ github.event.inputs.approval_id }}
+          APPROVALS_PATH: ${{ runner.temp }}/approvals/approvals.jsonl
+          APPROVAL_VERIFY_KEY: ${{ secrets.APPROVAL_VERIFY_KEY }}
         run: |
           python -m agents.sales_fleet.fleet \
             --sku "${GARCAR_DEFAULT_SKU}" \
@@ -61,5 +85,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fleet-ledger
-          path: agents/sales_fleet/fleet_ledger.json
+          path: |
+            agents/sales_fleet/fleet_ledger.json
+            ${{ runner.temp }}/approvals/policy_events.jsonl
           if-no-files-found: ignore
