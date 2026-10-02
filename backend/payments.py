@@ -11,6 +11,7 @@ from database import get_db
 from models import User, Payment
 from auth import get_current_user
 from rhns_audit import run_rhns_audit, STARTER_AUDIT_PRODUCT_IDS
+from approval_gate import ApprovalRequired, require_standing_approval  # GAR-530
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -96,6 +97,14 @@ def create_checkout(req: CheckoutRequest, user: User = Depends(get_current_user)
     plan = PLANS.get(req.plan)
     if not plan:
         raise HTTPException(status_code=400, detail=f"Invalid plan. Choose: {list(PLANS.keys())}")
+
+    # GAR-530: customer-initiated checkout runs on Garrett's standing approval for this plan.
+    try:
+        require_standing_approval("charge.checkout", plan=req.plan, amount_cents=plan["price"],
+                                  currency="usd", site="backend.payments.create_checkout")
+    except ApprovalRequired as exc:
+        logger.warning(f"Checkout for plan {req.plan} refused by approval gate: {exc.reason}")
+        raise HTTPException(status_code=403, detail="Checkout for this plan is not approved yet.")
 
     success_url = req.success_url or f"{BASE_URL}/dashboard?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = req.cancel_url or f"{BASE_URL}/pricing"
