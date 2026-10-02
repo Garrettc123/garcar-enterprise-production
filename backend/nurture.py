@@ -23,6 +23,7 @@ from email.mime.multipart import MIMEMultipart
 from database import get_db
 from models import Lead, EmailTemplate, NurtureStep, User
 from auth import get_admin_user
+from approval_gate import ApprovalRequired, require_approval  # GAR-530
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/nurture", tags=["nurture"])
@@ -278,11 +279,21 @@ GARCAR Enterprise""",
 # SMTP EMAIL SENDER
 # ════════════════════════════════════════
 
-def send_email(to_email: str, subject: str, body_html: str, body_text: str) -> dict:
-    """Send an email via SMTP. Returns status dict."""
+def send_email(to_email: str, subject: str, body_html: str, body_text: str,
+               approval_id: Optional[str] = None) -> dict:
+    """Send an email via SMTP. Returns status dict.
+
+    GAR-530: needs a Garrett-issued ``send.email`` approval covering ``to_email``.
+    """
     if not SMTP_USER or not SMTP_PASS:
         logger.warning(f"SMTP not configured — email to {to_email} queued but not sent")
         return {"status": "queued", "message": "SMTP not configured — email logged but not delivered"}
+
+    try:
+        require_approval("send.email", approval_id, to=to_email, site="backend.nurture.send_email")
+    except ApprovalRequired as exc:
+        logger.warning(f"Email to lead refused by approval gate: {exc.reason}")
+        return {"status": "refused", "message": f"approval_required:{exc.reason}"}
 
     try:
         msg = MIMEMultipart("alternative")
@@ -380,8 +391,12 @@ def enroll_lead_in_sequence(lead: Lead, sequence_name: str, db: Session):
     logger.info(f"Enrolled {lead.email} in {sequence_name} ({len(templates)} steps)")
 
 
-def process_nurture_queue(db: Session):
-    """Process all due nurture steps — send emails."""
+def process_nurture_queue(db: Session, approval_id: Optional[str] = None):
+    """Process all due nurture steps — send emails.
+
+    GAR-530: ``approval_id`` is a Garrett-issued send.email approval whose ``to`` list
+    covers the leads being emailed. Refused steps stay pending for a later approved run.
+    """
     now = datetime.now(timezone.utc)
 
     due_steps = db.query(NurtureStep).filter(
@@ -389,7 +404,7 @@ def process_nurture_queue(db: Session):
         NurtureStep.scheduled_at <= now,
     ).order_by(NurtureStep.scheduled_at).limit(50).all()
 
-    results = {"sent": 0, "failed": 0, "skipped": 0}
+    results = {"sent": 0, "failed": 0, "skipped": 0, "refused": 0}
 
     for step in due_steps:
         lead = step.lead
@@ -406,8 +421,11 @@ def process_nurture_queue(db: Session):
         body_html = render_template(template.body_html, lead)
         body_text = render_template(template.body_text, lead)
 
-        result = send_email(lead.email, subject, body_html, body_text)
+        result = send_email(lead.email, subject, body_html, body_text, approval_id=approval_id)
 
+        if result["status"] == "refused":
+            results["refused"] += 1  # GAR-530: leave pending until Garrett approves
+            continue
         if result["status"] in ("sent", "queued"):
             step.status = "sent"
             step.sent_at = now
@@ -473,11 +491,12 @@ def api_enroll_lead(
 @router.post("/process")
 def api_process_queue(
     background_tasks: BackgroundTasks,
+    approval_id: Optional[str] = None,
     admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    """Admin: trigger nurture queue processing."""
-    results = process_nurture_queue(db)
+    """Admin: trigger nurture queue processing (GAR-530: pass ?approval_id=pd_...)."""
+    results = process_nurture_queue(db, approval_id=approval_id)
     return {"message": "Queue processed", "results": results}
 
 
