@@ -199,6 +199,7 @@ def test_g3_fleet_sends_only_to_approved_recipients(gate_env, grant, fleet, monk
 @pytest.fixture
 def billing(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "billing.db"))
+    monkeypatch.setenv("BILLING_API_KEY", "unit-test-billing-key")  # hardening audit: endpoint needs a key
     sys.modules.pop("billing.main", None)
     mod = importlib.import_module("billing.main")
     intent = SimpleNamespace(id="pi_test", client_secret="cs_test", status="requires_payment_method")
@@ -206,7 +207,7 @@ def billing(monkeypatch, tmp_path):
     monkeypatch.setattr(mod.stripe.PaymentIntent, "create", rec)
     from fastapi.testclient import TestClient
 
-    return TestClient(mod.app), rec
+    return TestClient(mod.app, headers={"X-API-Key": "unit-test-billing-key"}), rec
 
 
 def _invoice(**kw):
@@ -244,14 +245,16 @@ def allocator(monkeypatch):
     return mod, rec
 
 
-def test_g5_allocation_refuses_without_id(gate_env, allocator):
+def test_g5_allocation_refuses_without_id(gate_env, allocator, monkeypatch):
     mod, rec = allocator
     with pytest.raises(ApprovalRequired):
         mod.execute_allocation(10_000)
     assert rec.calls == []
     from fastapi.testclient import TestClient
 
-    r = TestClient(mod.alloc_app).post("/allocate/execute", json={"amount_cents": 10_000})
+    monkeypatch.setenv("ALLOCATOR_API_KEY", "unit-test-allocator-key")  # hardening audit
+    r = TestClient(mod.alloc_app).post("/allocate/execute", json={"amount_cents": 10_000},
+                                       headers={"X-API-Key": "unit-test-allocator-key"})
     assert r.status_code == 403 and rec.calls == []
 
 
