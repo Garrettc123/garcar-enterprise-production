@@ -12,6 +12,13 @@ import json
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
+try:  # GAR-530 approval gate (repo-root package)
+    from approval_gate import ApprovalRequired, require_approval
+except ImportError:  # started from inside billing/: make the repo root importable
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+    from approval_gate import ApprovalRequired, require_approval
 
 app = FastAPI(title="Garcar Billing Microservice", version="1.0.0")
 
@@ -45,6 +52,7 @@ class InvoiceRequest(BaseModel):
     currency: str = "usd"
     description: str
     metadata: Optional[dict] = {}
+    approval_id: Optional[str] = None  # GAR-530: Garrett-issued charge.payment_intent approval
 
 
 class ReceiptRequest(BaseModel):
@@ -55,6 +63,12 @@ class ReceiptRequest(BaseModel):
 @app.post("/create-invoice")
 async def create_invoice(req: InvoiceRequest):
     """Create Stripe PaymentIntent and log to DB."""
+    try:
+        require_approval("charge.payment_intent", req.approval_id, to=req.customer_email,
+                         amount_cents=req.amount_cents, currency=req.currency,
+                         site="billing.main.create_invoice")
+    except ApprovalRequired as exc:
+        raise HTTPException(status_code=403, detail=f"approval_required:{exc.reason}")
     try:
         intent = stripe.PaymentIntent.create(
             amount=req.amount_cents,

@@ -22,6 +22,8 @@ import urllib.parse
 from datetime import datetime, timezone
 from typing import Optional
 
+from approval_gate import ApprovalRequired, require_approval  # GAR-530
+
 logger = logging.getLogger(__name__)
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -274,10 +276,21 @@ def generate_report(client: dict, engagement_id: str, upsell_url: str) -> str:
 
 # ── Delivery ───────────────────────────────────────────────────────────────────
 
-def send_audit_report(to_email: str, to_name: str, company: str, html_body: str) -> bool:
-    """Send the audit report via SendGrid."""
+def send_audit_report(to_email: str, to_name: str, company: str, html_body: str,
+                      approval_id: Optional[str] = None) -> bool:
+    """Send the audit report via SendGrid.
+
+    GAR-530: needs a Garrett-issued ``send.email`` approval covering ``to_email``.
+    """
     if not SENDGRID_API_KEY:
         logger.warning("SENDGRID_API_KEY not set — skipping email delivery")
+        return False
+
+    try:
+        require_approval("send.email", approval_id, to=to_email,
+                         site="backend.rhns_audit.send_audit_report")
+    except ApprovalRequired as exc:
+        logger.warning(f"Audit report email refused by approval gate: {exc.reason}")
         return False
 
     payload = {
@@ -375,6 +388,7 @@ def run_rhns_audit(
     checkout_metadata: dict = None,
     engagement_id: str = None,
     upsell_url: str = "https://buy.stripe.com/garcar-recovery-sprint",
+    approval_id: Optional[str] = None,
 ) -> dict:
     """
     Full zero-human RHNS audit pipeline.
@@ -398,7 +412,8 @@ def run_rhns_audit(
 
     # 3. Deliver report via email
     email_sent = send_audit_report(
-        customer_email, customer_name, client["company_name"], report_html
+        customer_email, customer_name, client["company_name"], report_html,
+        approval_id=approval_id,
     )
 
     # 4. Archive engagement as RHNS template (async via GitHub Actions)

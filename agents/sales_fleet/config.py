@@ -56,6 +56,8 @@ MAX_LEADS_PER_RUN = int(os.getenv("FLEET_MAX_LEADS", "25"))
 MIN_SCORE_TO_OUTREACH = float(os.getenv("FLEET_MIN_SCORE", "55"))
 DRY_RUN = os.getenv("FLEET_DRY_RUN", "true").lower() in ("1", "true", "yes")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+# GAR-530: Garrett-issued send.email approval (python -m approval_gate.cli grant ...)
+APPROVAL_ID = os.getenv("FLEET_APPROVAL_ID", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "Garrett at Garcar <garrett@garcar.io>")
 LEDGER_PATH = os.getenv("FLEET_LEDGER_PATH", "agents/sales_fleet/fleet_ledger.json")
 
