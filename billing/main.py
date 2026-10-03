@@ -2,7 +2,7 @@
 /create-invoice, /payment-status, /send-receipt
 Connects to Stripe. Logs transactions to SQLite (swap for Postgres in prod).
 """
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 import stripe
@@ -19,6 +19,14 @@ except ImportError:  # started from inside billing/: make the repo root importab
     from pathlib import Path as _Path
     _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
     from approval_gate import ApprovalRequired, require_approval
+try:
+    from billing.api_key_auth import api_key_dependency
+except ImportError:  # started from inside billing/
+    from api_key_auth import api_key_dependency
+
+# Hardening audit Oct 2026: money and customer-data endpoints need BILLING_API_KEY.
+# Fails closed (503) when BILLING_API_KEY is not set.
+require_billing_key = api_key_dependency("BILLING_API_KEY")
 
 app = FastAPI(title="Garcar Billing Microservice", version="1.0.0")
 
@@ -60,7 +68,7 @@ class ReceiptRequest(BaseModel):
     customer_email: str
 
 
-@app.post("/create-invoice")
+@app.post("/create-invoice", dependencies=[Depends(require_billing_key)])
 async def create_invoice(req: InvoiceRequest):
     """Create Stripe PaymentIntent and log to DB."""
     try:
@@ -154,7 +162,7 @@ async def send_receipt(req: ReceiptRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/transactions")
+@app.get("/transactions", dependencies=[Depends(require_billing_key)])
 async def list_transactions(limit: int = 50):
     """List recent transactions from local DB."""
     conn = sqlite3.connect(DB_PATH)

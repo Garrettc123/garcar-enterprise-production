@@ -4,7 +4,7 @@ Trigger: Stripe payout webhook or manual call.
 """
 import os
 import stripe
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 
@@ -15,6 +15,14 @@ except ImportError:  # started from inside billing/: make the repo root importab
     from pathlib import Path as _Path
     _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
     from approval_gate import ApprovalRequired, require_approval
+try:
+    from billing.api_key_auth import api_key_dependency
+except ImportError:  # started from inside billing/
+    from api_key_auth import api_key_dependency
+
+# Hardening audit Oct 2026: /allocate/execute moves money, so it needs ALLOCATOR_API_KEY
+# on top of the GAR-530 approval. Fails closed (503) when ALLOCATOR_API_KEY is not set.
+require_allocator_key = api_key_dependency("ALLOCATOR_API_KEY")
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
@@ -93,7 +101,7 @@ async def allocate_endpoint(event: PayoutEvent):
     }
 
 
-@alloc_app.post("/allocate/execute")
+@alloc_app.post("/allocate/execute", dependencies=[Depends(require_allocator_key)])
 async def allocate_execute(event: PayoutEvent):
     """Actually execute transfers. Only call after Stripe payout confirmed."""
     try:

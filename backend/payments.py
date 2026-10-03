@@ -171,16 +171,20 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     if not stripe:
         raise HTTPException(status_code=503, detail="Stripe not configured")
 
+    # Hardening audit Oct 2026: fail closed. Without a signing secret we cannot tell a real
+    # Stripe event from a forged one, so refuse everything instead of trusting the body.
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
+    if not webhook_secret:
+        logger.error("Stripe webhook refused: STRIPE_WEBHOOK_SECRET is not set")
+        raise HTTPException(status_code=503, detail="Webhook not configured")
+
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
+    if not sig:
+        raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
 
     try:
-        if STRIPE_WEBHOOK_SECRET:
-            event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-        else:
-            import json
-            event = json.loads(payload)
-            logger.warning("Webhook signature not verified — STRIPE_WEBHOOK_SECRET not set")
+        event = stripe.Webhook.construct_event(payload, sig, webhook_secret)
     except Exception as e:
         logger.error(f"Webhook verification failed: {e}")
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
