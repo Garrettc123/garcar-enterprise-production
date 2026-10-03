@@ -10,11 +10,13 @@ on:
       - ".github/workflows/cloudflare-worker-deploy.yml"
   workflow_dispatch:
 
-permissions:
-  contents: read
+# Least privilege: the token gets nothing by default; each job asks only for what it needs.
+permissions: {}
 
 jobs:
   deploy:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -25,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Validate required secrets are present
         shell: bash

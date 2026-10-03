@@ -16,13 +16,18 @@ on:
         required: false
         default: 'railway'
 
+# Least privilege: the token gets nothing by default; each job asks only for what it needs.
+permissions: {}
+
 jobs:
   test:
+    permissions:
+      contents: read
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -35,20 +40,28 @@ jobs:
           python billing/revenue_allocator.py 2>/dev/null || true
 
   health-check:
+    permissions:
+      contents: read
     name: Pre-deploy Health Check
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Validate env var templates
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
         run: |
           echo "Checking required secrets..."
-          [ -n "${{ secrets.STRIPE_SECRET_KEY }}" ] && echo "STRIPE_SECRET_KEY: set" || echo "STRIPE_SECRET_KEY: MISSING"
-          [ -n "${{ secrets.STRIPE_WEBHOOK_SECRET }}" ] && echo "STRIPE_WEBHOOK_SECRET: set" || echo "STRIPE_WEBHOOK_SECRET: MISSING"
-          [ -n "${{ secrets.NOTION_API_KEY }}" ] && echo "NOTION_API_KEY: set" || echo "NOTION_API_KEY: MISSING"
+          [ -n "$STRIPE_SECRET_KEY" ] && echo "STRIPE_SECRET_KEY: set" || echo "STRIPE_SECRET_KEY: MISSING"
+          [ -n "$STRIPE_WEBHOOK_SECRET" ] && echo "STRIPE_WEBHOOK_SECRET: set" || echo "STRIPE_WEBHOOK_SECRET: MISSING"
+          [ -n "$NOTION_API_KEY" ] && echo "NOTION_API_KEY: set" || echo "NOTION_API_KEY: MISSING"
           echo "Health check complete"
 
   deploy-railway:
+    permissions:
+      contents: read
     name: Deploy to Railway
     runs-on: ubuntu-latest
     needs: [test, health-check]
@@ -62,7 +75,7 @@ jobs:
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install Railway CLI
         run: npm install -g @railway/cli
       - name: Deploy to Railway
@@ -71,19 +84,25 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       - name: Report status to Linear
+        env:
+          CLIENT_NAME: ${{ github.event.inputs.client_name }}  # passed via env, never inlined into the script
         run: |
-          echo "Deploy complete for client: ${{ github.event.inputs.client_name }}"
+          echo "Deploy complete for client: ${CLIENT_NAME}"
           echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   notify:
+    permissions: {}
     name: Notify on Deploy
     runs-on: ubuntu-latest
     needs: deploy-railway
     if: always()
     steps:
       - name: Send deploy notification
+        env:
+          CLIENT_NAME: ${{ github.event.inputs.client_name }}  # passed via env, never inlined into the script
+          DEPLOY_RESULT: ${{ needs.deploy-railway.result }}
         run: |
           echo "Deploy pipeline complete"
-          echo "Client: ${{ github.event.inputs.client_name }}"
-          echo "Result: ${{ needs.deploy-railway.result }}"
+          echo "Client: ${CLIENT_NAME}"
+          echo "Result: ${DEPLOY_RESULT}"
           # Add Slack/email notification here

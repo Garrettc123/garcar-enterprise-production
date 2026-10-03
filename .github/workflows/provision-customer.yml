@@ -2,13 +2,33 @@ name: Provision Customer
 on:
   repository_dispatch:
     types: [provision-customer]
+
+# Least privilege: the token gets nothing by default; each job asks only for what it needs.
+permissions: {}
+
 jobs:
   provision:
+    # No checkout and no GitHub API calls, so this job needs no token scopes.
+    permissions: {}
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          curl -s -X POST https://api.vercel.com/v1/deployments             -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"             -H "Content-Type: application/json"             -d '{"name":"garcar-enterprise-production","gitSource":{"type":"github","ref":"main"}}'
+          curl -s -X POST https://api.vercel.com/v1/deployments \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"name":"garcar-enterprise-production","gitSource":{"type":"github","ref":"main"}}'
       - name: Notify butler
+        env:
+          BUTLER_WEBHOOK_URL: ${{ secrets.BUTLER_WEBHOOK_URL }}
+          # Hardening audit (script injection): the email comes from the dispatch payload, which
+          # the sender controls. Pass it through env and build the JSON with jq so quotes,
+          # $(...) or backticks in it are treated as plain text, never run as shell.
+          CUSTOMER_EMAIL: ${{ github.event.client_payload.email }}
         run: |
-          curl -s -X POST "${{ secrets.BUTLER_WEBHOOK_URL }}"             -H "Content-Type: application/json"             -d '{"event":"customer_provisioned","email":"${{ github.event.client_payload.email }}"}'
+          payload=$(jq -cn --arg email "$CUSTOMER_EMAIL" '{event:"customer_provisioned",email:$email}')
+          curl -s -X POST "$BUTLER_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$payload"
