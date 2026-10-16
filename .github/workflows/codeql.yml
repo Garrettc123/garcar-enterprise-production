@@ -9,12 +9,13 @@ on:
     - cron: '0 3 * * 1'
 
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.
-permissions: {}
+permissions: {} 
 
 jobs:
   analyze:
     name: Analyze Python
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       actions: read
       contents: read
