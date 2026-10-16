@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.
-permissions: {}
+permissions: {} 
 
 jobs:
   deploy:
-    permissions: {}
+    permissions: {} 
     runs-on: ubuntu-latest
     name: Deploy to Render
 
@@ -20,11 +20,12 @@ jobs:
           if [ -z "$RENDER_DEPLOY_HOOK" ]; then
             echo "RENDER_DEPLOY_HOOK secret is not set — skipping deploy."
             echo "skip=true" >> "$GITHUB_ENV"
+            exit 0
           else
             echo "skip=false" >> "$GITHUB_ENV"
           fi
         env:
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }
 
       - name: Trigger Render deploy
         if: env.skip != 'true'
@@ -33,7 +34,7 @@ jobs:
             --fail --silent --show-error
           echo "Deploy triggered successfully"
         env:
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }
 
       - name: Wait for deployment
         if: env.skip != 'true'
@@ -59,4 +60,4 @@ jobs:
           echo "Health check timed out — deploy may still be in progress"
           exit 0
         env:
-          API_URL: ${{ secrets.API_URL }}
+          API_URL: ${{ secrets.API_URL }
