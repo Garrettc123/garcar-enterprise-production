@@ -49,9 +49,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Validate env var templates
         env:
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
         run: |
           echo "Checking required secrets..."
           [ -n "$STRIPE_SECRET_KEY" ] && echo "STRIPE_SECRET_KEY: set" || echo "STRIPE_SECRET_KEY: MISSING"
@@ -67,18 +67,18 @@ jobs:
     needs: [test, health-check]
     if: github.event.inputs.deploy_target == 'railway' || github.event.inputs.deploy_target == ''
     env:
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }
-      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }
-      NOTION_CLIENTS_DB_ID: ${{ secrets.NOTION_CLIENTS_DB_ID }
-      NOTION_LEADS_DB_ID: ${{ secrets.NOTION_LEADS_DB_ID }
-      SECRET_KEY: ${{ secrets.SECRET_KEY }
-      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+      NOTION_CLIENTS_DB_ID: ${{ secrets.NOTION_CLIENTS_DB_ID }}
+      NOTION_LEADS_DB_ID: ${{ secrets.NOTION_LEADS_DB_ID }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Check RAILWAY_TOKEN
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "::error::RAILWAY_TOKEN secret is not set. Add it in Settings > Secrets and variables > Actions."
@@ -89,10 +89,10 @@ jobs:
       - name: Deploy to Railway
         run: railway up --service garcar-billing
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       - name: Report status to Linear
         env:
-          CLIENT_NAME: ${{ github.event.inputs.client_name }
+          CLIENT_NAME: ${{ github.event.inputs.client_name }}
         run: |
           echo "Deploy complete for client: $CLIENT_NAME"
           echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -106,8 +106,8 @@ jobs:
     steps:
       - name: Send deploy notification
         env:
-          CLIENT_NAME: ${{ github.event.inputs.client_name }
-          DEPLOY_RESULT: ${{ needs.deploy-railway.result }
+          CLIENT_NAME: ${{ github.event.inputs.client_name }}
+          DEPLOY_RESULT: ${{ needs.deploy-railway.result }}
         run: |
           echo "Deploy pipeline complete"
           echo "Client: $CLIENT_NAME"
