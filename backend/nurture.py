@@ -34,7 +34,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASS = os.getenv("SMTP_PASS", "")
 FROM_NAME = os.getenv("FROM_NAME", "GARCAR Enterprise")
-FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER or "hello@garcar.io")
+FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER or "gwc2780@gmail.com")
 BASE_URL = os.getenv("BASE_URL", "https://garcar-enterprise-platform.pplx.app")
 
 
