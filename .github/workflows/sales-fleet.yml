@@ -1,14 +1,13 @@
 name: Autonomous Sales Fleet
 
+# Weekday schedule disabled 2026-10-28: default SKU was still 47. Manual only until pack is $497-clean.
 on:
-  schedule:
-    - cron: "5 14 * * 1-5"
   workflow_dispatch:
     inputs:
       sku:
-        description: "SKU key (47 | 497 | 2500)"
+        description: "SKU key (497 | 2500)"
         required: false
-        default: "47"
+        default: "497"
       limit:
         description: "Max leads this run"
         required: false
@@ -68,7 +67,7 @@ jobs:
       - name: Run sales fleet
         env:
           FLEET_DRY_RUN: ${{ github.event.inputs.live == 'true' && 'false' || 'true' }}
-          GARCAR_DEFAULT_SKU: ${{ github.event.inputs.sku || '47' }}
+          GARCAR_DEFAULT_SKU: ${{ github.event.inputs.sku || '497' }}
           FLEET_MAX_LEADS: ${{ github.event.inputs.limit || '15' }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}

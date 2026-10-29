@@ -1,8 +1,7 @@
 name: REACH pack
+# Schedule disabled 2026-10-28: packs still generated $47 SMS copy. Manual only.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 13 * * 1-5"
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.
 permissions: {}
 

@@ -1,8 +1,7 @@
 name: Butler Revenue Monitor
 
+# Schedule disabled 2026-10-28: retired $47 monitor. Manual only.
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.
@@ -19,7 +18,7 @@ jobs:
           echo "=== BUTLER REVENUE MONITOR ==="
           echo "Time: $(date -u)"
           FAIL=0
-          # The only surface that can take a stranger $47 today.
+          # Live storefront is the $497 / $2500 offer page.
           url="https://garrettc123.github.io/"
           code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$url" || echo "000")
           echo "REQUIRED $url -> HTTP $code"

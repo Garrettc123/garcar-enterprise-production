@@ -1,8 +1,7 @@
 name: Revenue Pain Cycle
 
+# Schedule disabled 2026-10-28: engine still references retired $47 path. Manual only.
 on:
-  schedule:
-    - cron: "15 */4 * * *"
   workflow_dispatch:
 
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.

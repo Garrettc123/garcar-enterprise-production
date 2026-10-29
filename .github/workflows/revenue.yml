@@ -1,8 +1,7 @@
 name: Revenue Loop
 
+# Schedule disabled 2026-10-28: retired $47 loop. Manual only.
 on:
-  schedule:
-    - cron: '0 * * * *'
   workflow_dispatch:
 
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.
@@ -20,7 +19,7 @@ jobs:
           code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garrettc123.github.io/" || echo "000")
           echo "Storefront HTTP $code"
           if [ "$code" != "200" ]; then
-            echo "::error::Cannot claim a revenue loop while the $47 page is down"
+            echo "::error::Cannot claim a revenue loop while the $497 storefront is down"
             exit 1
           fi
       - name: Setup Python
