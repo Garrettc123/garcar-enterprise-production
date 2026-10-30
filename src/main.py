@@ -12,6 +12,13 @@ log = logging.getLogger("garcar")
 cfg = settings()
 vault_data: dict = {}
 
+def webhook_secret() -> str:
+    # Production signing secret is sourced from Vault, never a committed default.
+    secret = vault_data.get("STRIPE_WEBHOOK_SECRET", "")
+    if not secret and cfg.environment != "production":
+        secret = cfg.stripe_webhook_secret
+    return secret
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global vault_data
@@ -46,12 +53,13 @@ async def ingest_permit(permit: PermitInput):
 
 @app.post("/webhook/payouts")
 async def stripe_payout_webhook(request: Request):
-    if not cfg.stripe_webhook_secret:
+    secret = webhook_secret()
+    if not secret:
         raise HTTPException(status_code=503, detail="Stripe webhook verification is not configured")
     payload = await request.body()
     signature = request.headers.get("stripe-signature", "")
     try:
-        event = stripe.Webhook.construct_event(payload, signature, cfg.stripe_webhook_secret)
+        event = stripe.Webhook.construct_event(payload, signature, secret)
         result = record_verified_payout(event, bucket=cfg.s3_ledger_bucket, region=cfg.aws_region, retention_days=cfg.ledger_retention_days)
     except (ValueError, stripe.error.SignatureVerificationError) as exc:
         raise HTTPException(status_code=400, detail="Invalid webhook payload or signature") from exc
