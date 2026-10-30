@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
@@ -16,7 +15,7 @@ from uuid import UUID
 import boto3
 import hvac
 from botocore.exceptions import ClientError
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 APP_ENV = os.getenv("APP_ENV", "production")
