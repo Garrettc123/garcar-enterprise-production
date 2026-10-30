@@ -1,3 +1,34 @@
+# Garcar Enterprise — Live Offer
+
+**Buyer:** real-estate team leads  
+**Product:** backup rules around the CRM they already use so new leads get called  
+**Price:** $2,500 one time, three business days  
+**Fallback:** $497 lead-export review, credited to the $2,500
+
+Page: https://garrettc123.github.io/  
+One-pager: https://garrettc123.github.io/overview.html  
+Call script: `CASH_COMMAND.md`
+
+Do not sell MARS, AI, or automation on the phone. Sell: new leads get called back before they go somewhere else.
+
+Payment link is sent after they give an email and say start. There is no $2,500 button on the page until that Stripe link exists.
+
+Canonical checkout webhook: `https://garcar-payments.garrettc123.workers.dev/stripe-webhook`
+
+## Revenue recovery context (2026-10-24)
+
+- Company domain `garcar.io` was unregistered (NXDOMAIN) at the time of the recorded check.
+- Operational and customer contact was routed to the verified inbox `gwc2780@gmail.com`.
+- Active revenue path: $497 review → $2,500 install. Other offers, case-study claims, and unproven feeds were on hold pending a source-backed sample and one completed delivery.
+- Stripe account had a negative balance and payout-method verification was pending at the time of the recorded check.
+- Historical test-card attempts must not be treated as current payment-health failures.
+
+## Founder
+
+Garrett Carrol · Grandview / Kopperl, TX
+
+---
+
 # Garcar Enterprise — Immutable Wealth Machine
 
 This repository is the guarded implementation baseline for the Garcar Enterprise control plane. It is not a claim of production deployment, compliance certification, live GraphRAG, or autonomous financial authority.
