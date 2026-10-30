@@ -5,6 +5,8 @@
 **Price:** $2,500 one time, three business days  
 **Fallback:** $497 lead-export review, credited to the $2,500
 
+**LLA-47 wedge (trades):** $47 lead-loss map — https://buy.stripe.com/3cI00j7YV0hQgDp8BR43S2v
+
 Page: https://garrettc123.github.io/  
 One-pager to send after a call: https://garrettc123.github.io/overview.html  
 Call script: `CASH_COMMAND.md`
@@ -27,3 +29,34 @@ Stripe account has a negative balance; payout method verification is pending. Au
 ## Founder
 
 Garrett Carrol · gwc2780@gmail.com · Grandview / Kopperl, TX
+
+---
+
+## Production Gateway (synced 2026-10-30)
+
+Zero-human DFW permit lead orchestrator:
+
+- `src/main.py` — FastAPI + LangGraph 1.2.19
+  - Vault / env secrets
+  - S3 WORM ledger (SHA-256)
+  - GraphRAG enrichment (stub)
+  - RHNS guardrails (< $75k + rating ≥ 4.0 auto-approve)
+  - Outreach draft with LLA-47 payment link
+  - `GET /health` + `POST /webhook/permits/dfw`
+- `terraform/main.tf` — S3 Object Lock (COMPLIANCE, 1 year)
+- `Dockerfile` + `docker-compose.yml`
+- `.github/workflows/gateway-ci.yml` — smoke CI
+- `vault/policies/garcar-gateway.hcl`
+
+### Quick start
+```bash
+export STRIPE_SECRET_KEY=sk_...
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+docker compose up --build -d
+curl http://localhost:8000/health
+```
+
+Apply Terraform before S3 writes. GraphRAG is a stub until wired to real contractor data.
+
+Revenue loop: permit → ledger → qualify → outreach with live payment link → Stripe close.
