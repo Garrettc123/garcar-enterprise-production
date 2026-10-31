@@ -170,7 +170,7 @@ async def health() -> dict[str, str]:
 
 
 @app.post("/webhook/permits/dfw", dependencies=[Depends(require_api_auth)])
-async def ingest_permit(permit: PermitPayload, request: Request) -> dict[str, Any]:
+async def ingest_permit(permit: PermitPayload) -> dict[str, Any]:
     try:
         config = load_runtime_config()
         digest = seal_event(permit, config)
