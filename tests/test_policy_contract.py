@@ -4,6 +4,7 @@ from pathlib import Path
 SOURCE = Path("src/main.py").read_text()
 COMPOSE = Path("docker-compose.yml").read_text()
 TERRAFORM = Path("terraform/main.tf").read_text()
+POLICY = Path("src/rhns_policy.py").read_text()
 
 
 def test_no_fake_credentials_or_dev_root_token():
@@ -19,7 +20,7 @@ def test_fail_closed_vault_and_no_environment_fallback():
 
 
 def test_review_required_and_no_outreach_execution():
-    assert '"HUMAN_REVIEW_REQUIRED"' in SOURCE
+    assert '"HUMAN_REVIEW_REQUIRED"' in POLICY
     assert '"NOT_GRANTED"' in SOURCE
     assert '"NOT_SENT"' in SOURCE
     assert "stripe.api_key" not in SOURCE.lower()
