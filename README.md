@@ -49,7 +49,7 @@ This branch contains a guarded implementation candidate. It is not a production 
 - Stripe webhook signature verification before payout-event recording.
 - Payout records retain integer minor units and event identifiers.
 - Permit decisions default to REVIEW_REQUIRED; no invented contractor ratings or automatic approval.
-- Container runs non-root, read-only, with dropped Linux capabilities.
+- Container runs non-root, read-only, with dropped Linux capabilities; the server and health check honor the platform-provided `PORT` (local default `8000`).
 - CI runs unit tests, dependency audit and Terraform validation.
 
 ## Deliberately disabled
