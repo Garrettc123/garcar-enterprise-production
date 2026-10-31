@@ -61,6 +61,7 @@ def test_seal_record_duplicate_returns_existing_version(monkeypatch):
 
     class ExistingObject(FakeS3):
         def put_object(self, **kwargs):
+            self.args = kwargs
             raise ClientError(
                 {"Error": {"Code": "PreconditionFailed"},
                  "ResponseMetadata": {"HTTPStatusCode": 412}},
@@ -68,10 +69,38 @@ def test_seal_record_duplicate_returns_existing_version(monkeypatch):
             )
 
         def head_object(self, **kwargs):
-            return {"VersionId": "existing-v1"}
+            return {"VersionId": "existing-v1", "Metadata": self.args["Metadata"]}
 
     fake = ExistingObject()
     monkeypatch.setattr(ledger.boto3, "client", lambda *a, **k: fake)
     result = ledger.seal_record({"id": "duplicate"}, "ledger-bucket", "us-east-1", 30)
     assert result["result"] == "already_sealed"
     assert result["version_id"] == "existing-v1"
+
+
+
+def test_seal_record_rejects_existing_object_with_wrong_metadata(monkeypatch):
+    from botocore.exceptions import ClientError
+    import pytest
+
+    class WrongObject(FakeS3):
+        def put_object(self, **kwargs):
+            raise ClientError(
+                {"Error": {"Code": "PreconditionFailed"},
+                 "ResponseMetadata": {"HTTPStatusCode": 412}},
+                "PutObject",
+            )
+
+        def head_object(self, **kwargs):
+            return {
+                "VersionId": "different-v1",
+                "Metadata": {
+                    "garcar-record-sha256": "wrong",
+                    "garcar-envelope-sha256": "wrong",
+                },
+            }
+
+    fake = WrongObject()
+    monkeypatch.setattr(ledger.boto3, "client", lambda *a, **k: fake)
+    with pytest.raises(ledger.LedgerError, match="metadata does not match"):
+        ledger.seal_record({"id": "collision"}, "ledger-bucket", "us-east-1", 30)
