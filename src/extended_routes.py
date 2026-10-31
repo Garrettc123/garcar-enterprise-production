@@ -1,14 +1,12 @@
 """Approval and Stripe webhook routes; these record evidence only."""
 from __future__ import annotations
 
-import hashlib
-import json
 from typing import Any
 
-from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from src.governance import OwnerApproval, verify_approval
+from src.hash_chain import append_event
 from src.stripe_reconciliation import verify_stripe_event
 from src.main import load_runtime_config, require_api_auth, _s3_client, verify_worm_configuration
 
@@ -16,28 +14,11 @@ router = APIRouter()
 
 
 def record_control_event(bucket: str, key: str, record: dict[str, Any]) -> str:
+    # The final path component is the stable event identifier; all control events share
+    # the same ordered chain as permit intake.
+    event_id = key.rsplit("/", 1)[-1].removesuffix(".json")
     s3 = _s3_client()
-    verify_worm_configuration(s3, bucket)
-    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-    digest = hashlib.sha256(canonical).hexdigest()
-    body = json.dumps({**record, "sha256": digest}, sort_keys=True, indent=2).encode()
-    try:
-        result = s3.put_object(
-            Bucket=bucket, Key=key, Body=body, ContentType="application/json",
-            Metadata={"sha256": digest}, IfNoneMatch="*",
-        )
-        version_id = result.get("VersionId")
-        if not version_id:
-            raise RuntimeError("S3 did not return a version ID")
-        stored = s3.head_object(Bucket=bucket, Key=key, VersionId=version_id)
-        if stored.get("ObjectLockMode") != "COMPLIANCE" or not stored.get("ObjectLockRetainUntilDate"):
-            raise RuntimeError("Control event is missing verified COMPLIANCE retention")
-    except ClientError as exc:
-        code = exc.response.get("Error", {}).get("Code", "")
-        if code in {"PreconditionFailed", "412", "ConditionalRequestConflict"}:
-            raise HTTPException(status_code=409, detail="Control event already recorded") from exc
-        raise RuntimeError("Control event ledger write failed") from exc
-    return digest
+    return append_event(s3, bucket, event_id, record, verify_worm_configuration)
 
 
 @router.post("/approvals/permits/{permit_id}", dependencies=[Depends(require_api_auth)])
