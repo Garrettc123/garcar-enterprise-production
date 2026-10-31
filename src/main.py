@@ -1,191 +1,203 @@
+"""Guarded permit-ingestion API for Garcar Enterprise.
+
+This service records evidence and prepares review work. It never sends outreach,
+approves a contractor, or initiates a payment.
+"""
+from __future__ import annotations
+
 import os
-import hashlib
-import json
-import logging
-from typing import TypedDict, Literal, Dict, Any
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from datetime import datetime, timezone
+from typing import Any
+from uuid import UUID
+
 import boto3
-import stripe
 import hvac
-from langgraph.graph import StateGraph, START, END
+from botocore.exceptions import ClientError
+from fastapi import Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("garcar-gateway")
+from src.hash_chain import append_event
+from src.evidence import build_contractor_profile
+from src.rhns_policy import PolicyContext, evaluate_rhns_policy
 
-def load_vault_secrets() -> Dict[str, str]:
-    vault_addr = os.getenv("VAULT_ADDR", "http://127.0.0.1:8200")
-    vault_token = os.getenv("VAULT_TOKEN", "dev-token")
-    try:
-        client = hvac.Client(url=vault_addr, token=vault_token)
-        if client.is_authenticated():
-            secret_response = client.secrets.kv.v2.read_secret_version(
-                mount_point="secret",
-                path="garcar/production/keys"
-            )
-            logger.info("Loaded secrets from HashiCorp Vault.")
-            return secret_response["data"]["data"]
-    except Exception as e:
-        logger.warning("Vault unavailable (%s). Falling back to environment variables.", e)
-    return {
-        "STRIPE_SECRET_KEY": os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder"),
-        "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", "mock_access_key"),
-        "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", "mock_secret_key"),
-        "S3_LEDGER_BUCKET": os.getenv("S3_LEDGER_BUCKET", "garcar-enterprise-immutable-ledger"),
-    }
+APP_ENV = os.getenv("APP_ENV", "production")
+VAULT_ADDR = os.getenv("VAULT_ADDR")
+VAULT_ROLE_ID = os.getenv("VAULT_ROLE_ID")
+VAULT_SECRET_ID = os.getenv("VAULT_SECRET_ID")
+VAULT_KV_PATH = os.getenv("VAULT_KV_PATH", "garcar/production/keys")
+VAULT_MOUNT = os.getenv("VAULT_MOUNT", "secret")
+S3_BUCKET = os.getenv("S3_LEDGER_BUCKET")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
-SECRETS = load_vault_secrets()
-stripe.api_key = SECRETS.get("STRIPE_SECRET_KEY")
-S3_BUCKET_NAME = SECRETS.get("S3_LEDGER_BUCKET")
-
-s3_client = boto3.client(
-    "s3",
-    aws_access_key_id=SECRETS.get("AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=SECRETS.get("AWS_SECRET_ACCESS_KEY"),
+app = FastAPI(
+    title="Garcar Enterprise Evidence Gateway",
+    version="0.1.0",
+    description="Evidence intake and review preparation; no autonomous external actions.",
 )
 
-class LeadState(TypedDict, total=False):
-    permit_id: str
-    municipality: str
-    contractor_name: str
-    property_address: str
-    valuation: float
-    description: str
-    filing_date: str
-    ledger_hash: str
-    graphrag_context: Dict[str, Any]
-    rhns_approved: bool
-    risk_score: float
-    outreach_draft: str
-    payment_link: str
-    status: str
-
-def ledger_lock_node(state: LeadState) -> LeadState:
-    logger.info("[Ledger] Sealing permit %s", state.get("permit_id"))
-    payload = {
-        "permit_id": state.get("permit_id"),
-        "municipality": state.get("municipality"),
-        "contractor_name": state.get("contractor_name"),
-        "valuation": state.get("valuation"),
-        "event_type": "ORCHESTRATION_INPUT_SEALED",
-    }
-    content_hash = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
-    s3_key = f"orchestration/leads/{str(state.get('municipality','unknown')).lower()}/{state.get('permit_id')}.json"
-    try:
-        s3_client.put_object(
-            Bucket=S3_BUCKET_NAME,
-            Key=s3_key,
-            Body=json.dumps({**payload, "sha256_hash": content_hash}, indent=2),
-            ContentType="application/json",
-        )
-        state["ledger_hash"] = content_hash
-        state["status"] = "LEDGER_LOCKED"
-    except Exception as e:
-        logger.error("Ledger write failed: %s", e)
-        state["status"] = f"LEDGER_FAILED: {e}"
-    return state
-
-def graphrag_enrich_node(state: LeadState) -> LeadState:
-    logger.info("[GraphRAG] Enriching %s", state.get("permit_id"))
-    state["graphrag_context"] = {
-        "contractor_rating": 4.9,
-        "past_projects_count": 22,
-        "market_segment": "Commercial Industrial DFW",
-        "trades": ["HVAC", "Roofing", "Plumbing"],
-    }
-    state["status"] = "GRAPHRAG_ENRICHED"
-    return state
-
-def rhns_guardrail_node(state: LeadState) -> LeadState:
-    logger.info("[RHNS] Evaluating %s", state.get("permit_id"))
-    valuation = float(state.get("valuation") or 0)
-    rating = float(state.get("graphrag_context", {}).get("contractor_rating", 0))
-    if valuation < 75000 and rating >= 4.0:
-        state["rhns_approved"] = True
-        state["risk_score"] = 0.08
-        state["status"] = "RHNS_AUTO_APPROVED"
-    else:
-        state["rhns_approved"] = False
-        state["risk_score"] = 0.91
-        state["status"] = "RHNS_REQUIRES_HUMAN_REVIEW"
-    return state
-
-def outreach_generation_node(state: LeadState) -> LeadState:
-    logger.info("[Outreach] Drafting for %s", state.get("contractor_name"))
-    payment_link = "https://buy.stripe.com/3cI00j7YV0hQgDp8BR43S2v"
-    state["payment_link"] = payment_link
-    name = state.get("contractor_name") or "there"
-    address = state.get("property_address") or "your project"
-    val = state.get("valuation") or 0
-    state["outreach_draft"] = (
-        f"Hey {name} — Garrett in Grandview. "
-        f"Your permit at {address} (${val:,.0f}) just hit the system. "
-        f"I map the first-response gap where Texas HVAC/roofing/plumbing shops lose the job after the lead lands. "
-        f"$47, delivered to your email. If the map is wrong you say so. "
-        f"Pay: {payment_link}"
-    )
-    state["status"] = "OUTREACH_READY"
-    return state
-
-def route_after_guardrails(state: LeadState) -> Literal["outreach_gen", "end"]:
-    return "outreach_gen" if state.get("rhns_approved") else "end"
-
-def build_lead_orchestrator():
-    workflow = StateGraph(LeadState)
-    workflow.add_node("ledger_lock", ledger_lock_node)
-    workflow.add_node("graphrag_enrich", graphrag_enrich_node)
-    workflow.add_node("rhns_guardrails", rhns_guardrail_node)
-    workflow.add_node("outreach_gen", outreach_generation_node)
-    workflow.add_edge(START, "ledger_lock")
-    workflow.add_edge("ledger_lock", "graphrag_enrich")
-    workflow.add_edge("graphrag_enrich", "rhns_guardrails")
-    workflow.add_conditional_edges(
-        "rhns_guardrails",
-        route_after_guardrails,
-        {"outreach_gen": "outreach_gen", "end": END},
-    )
-    workflow.add_edge("outreach_gen", END)
-    return workflow.compile()
-
-compiled_graph = build_lead_orchestrator()
-
-app = FastAPI(title="Garcar Enterprise Zero-Human Autonomous Wealth Engine")
 
 class PermitPayload(BaseModel):
-    permit_id: str
-    municipality: str
-    contractor_name: str
-    property_address: str
-    valuation: float
-    description: str
-    filing_date: str
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    event_id: UUID
+    permit_id: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
+    municipality: str = Field(min_length=2, max_length=100)
+    contractor_name: str = Field(min_length=1, max_length=200)
+    property_address: str = Field(min_length=5, max_length=300)
+    valuation: float = Field(ge=0, le=1_000_000_000)
+    description: str = Field(default="", max_length=5000)
+    filing_date: str = Field(min_length=8, max_length=40)
+
+    @field_validator("municipality", "contractor_name", "property_address")
+    @classmethod
+    def reject_control_characters(cls, value: str) -> str:
+        if any(ord(ch) < 32 for ch in value):
+            raise ValueError("Control characters are not allowed")
+        return value
+
+
+def _vault_client() -> hvac.Client:
+    if not VAULT_ADDR or not VAULT_ROLE_ID or not VAULT_SECRET_ID:
+        raise RuntimeError("Vault AppRole configuration is required; refusing fallback credentials")
+    client = hvac.Client(url=VAULT_ADDR, timeout=5)
+    auth = client.auth.approle.login(
+        role_id=VAULT_ROLE_ID,
+        secret_id=VAULT_SECRET_ID,
+    )
+    if not auth or not client.is_authenticated():
+        raise RuntimeError("Vault authentication failed")
+    return client
+
+
+def load_runtime_config() -> dict[str, str]:
+    """Load runtime configuration from Vault; fail closed in every environment."""
+    client = _vault_client()
+    response = client.secrets.kv.v2.read_secret_version(
+        mount_point=VAULT_MOUNT,
+        path=VAULT_KV_PATH,
+    )
+    values = response.get("data", {}).get("data", {})
+    bucket = values.get("S3_LEDGER_BUCKET") or S3_BUCKET
+    if not bucket:
+        raise RuntimeError("S3_LEDGER_BUCKET is missing from Vault/configuration")
+    return {
+        "S3_LEDGER_BUCKET": bucket,
+        "OWNER_APPROVAL_PUBLIC_KEY": values.get("OWNER_APPROVAL_PUBLIC_KEY", ""),
+        "STRIPE_WEBHOOK_SECRET": values.get("STRIPE_WEBHOOK_SECRET", ""),
+        "API_BEARER_TOKEN": values.get("API_BEARER_TOKEN", ""),
+    }
+
+
+def require_api_auth(authorization: str | None = Header(default=None)) -> None:
+    try:
+        expected_token = load_runtime_config().get("API_BEARER_TOKEN", "")
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="API authentication service unavailable") from exc
+    if not expected_token:
+        raise HTTPException(status_code=503, detail="API authentication is not configured")
+    expected = f"Bearer {expected_token}"
+    if authorization is None or not __import__("hmac").compare_digest(authorization, expected):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def _s3_client():
+    # Uses the AWS SDK default credential chain (e.g. task role or OIDC role).
+    # Static AWS access keys are intentionally not accepted from application config.
+    return boto3.client("s3", region_name=AWS_REGION)
+
+
+def verify_worm_configuration(s3: Any, bucket: str) -> dict[str, Any]:
+    try:
+        lock = s3.get_object_lock_configuration(Bucket=bucket)
+        retention = lock.get("ObjectLockConfiguration", {}).get("Rule", {}).get("DefaultRetention", {})
+        versioning = s3.get_bucket_versioning(Bucket=bucket)
+    except ClientError as exc:
+        raise RuntimeError("Unable to verify S3 Object Lock configuration") from exc
+
+    if lock.get("ObjectLockConfiguration", {}).get("ObjectLockEnabled") != "Enabled":
+        raise RuntimeError("S3 Object Lock is not enabled")
+    if versioning.get("Status") != "Enabled":
+        raise RuntimeError("S3 bucket versioning is not enabled")
+    if retention.get("Mode") != "COMPLIANCE":
+        raise RuntimeError("Default retention must be COMPLIANCE")
+    if not retention.get("Days") and not retention.get("Years"):
+        raise RuntimeError("Default compliance retention period is missing")
+    return {"mode": retention["Mode"], "days": retention.get("Days"), "years": retention.get("Years")}
+
+
+def seal_event(payload: PermitPayload, config: dict[str, str]) -> str:
+    s3 = _s3_client()
+    record = {
+        "schema_version": 1,
+        "event_id": str(payload.event_id),
+        "event_type": "PERMIT_INGESTED",
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "permit": payload.model_dump(mode="json"),
+    }
+    return append_event(
+        s3, config["S3_LEDGER_BUCKET"], str(payload.event_id), record,
+        verify_worm_configuration,
+    )
+
+
+def prepare_review(payload: PermitPayload, digest: str) -> dict[str, Any]:
+    # The default evidence provider returns no records; no metrics are fabricated.
+    profile = build_contractor_profile(payload.contractor_name)
+    policy = evaluate_rhns_policy(
+        PolicyContext(
+            municipality=payload.municipality,
+            valuation=payload.valuation,
+            permit_source_verified=False,
+            contractor_identity_verified=False,
+            authority_verified=False,
+            owner_approval_verified=False,
+            evidence_refs=[str(item.source_uri) for item in profile.evidence],
+        )
+    )
+    return {
+        "status": policy["decision"],
+        "permit_id": payload.permit_id,
+        "ledger_hash": digest,
+        "contractor_rating": profile.rating,
+        "past_projects_count": profile.completed_project_count,
+        "evidence_status": profile.evidence_state,
+        "policy_reasons": policy["reasons"],
+        "risk_score": policy["risk_score"],
+        "approval": "NOT_GRANTED",
+        "outreach": "NOT_SENT",
+        "next_action": "Verify source records, budget authority, and obtain signed owner approval.",
+    }
+
+
+@app.get("/live")
+async def live() -> dict[str, str]:
+    return {"status": "alive"}
+
 
 @app.get("/health")
-async def health():
-    return {"status": "ok", "service": "garcar-gateway", "ledger_bucket": S3_BUCKET_NAME}
-
-@app.post("/webhook/permits/dfw")
-async def ingest_permit(permit: PermitPayload):
-    initial_state: LeadState = {
-        **permit.model_dump(),
-        "ledger_hash": "",
-        "graphrag_context": {},
-        "rhns_approved": False,
-        "risk_score": 0.0,
-        "outreach_draft": "",
-        "payment_link": "",
-        "status": "INITIALIZED",
-    }
+async def health() -> dict[str, Any]:
+    # Readiness is only true when Vault and the immutable ledger are reachable.
     try:
-        final_state = compiled_graph.invoke(initial_state)
-        return {
-            "status": "success",
-            "execution_status": final_state.get("status"),
-            "ledger_hash": final_state.get("ledger_hash"),
-            "rhns_approved": final_state.get("rhns_approved"),
-            "outreach_draft": final_state.get("outreach_draft"),
-            "payment_link": final_state.get("payment_link"),
-        }
-    except Exception as e:
-        logger.exception("Orchestrator failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        config = load_runtime_config()
+        retention = verify_worm_configuration(_s3_client(), config["S3_LEDGER_BUCKET"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Required production dependencies are unavailable") from exc
+    return {"status": "ready", "mode": "evidence-intake-only", "ledger_retention": retention}
+
+
+@app.post("/webhook/permits/dfw", dependencies=[Depends(require_api_auth)])
+async def ingest_permit(permit: PermitPayload) -> dict[str, Any]:
+    try:
+        config = load_runtime_config()
+        digest = seal_event(permit, config)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Do not leak credentials, Vault responses, bucket names, or provider internals.
+        raise HTTPException(status_code=503, detail="Evidence intake unavailable; no approval or outreach occurred") from exc
+    return prepare_review(permit, digest)
+
+
+# Routes are imported after core definitions to avoid circular initialization.
+from src.extended_routes import router as extended_router  # noqa: E402
+app.include_router(extended_router)
