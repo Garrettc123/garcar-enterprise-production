@@ -17,7 +17,14 @@ ZERO_HASH = "0" * 64
 def _read_head(s3: Any, bucket: str) -> tuple[dict[str, Any], str | None]:
     try:
         result = s3.get_object(Bucket=bucket, Key="evidence/chain/head.json")
+        if result.get("ObjectLockMode") != "COMPLIANCE" or not result.get("ObjectLockRetainUntilDate"):
+            raise RuntimeError("Current chain head lacks verified COMPLIANCE retention")
         head = json.loads(result["Body"].read())
+        if not isinstance(head.get("sequence"), int) or head["sequence"] < 1:
+            raise RuntimeError("Current chain head sequence is invalid")
+        event_hash = head.get("event_hash", "")
+        if len(event_hash) != 64 or any(ch not in "0123456789abcdef" for ch in event_hash):
+            raise RuntimeError("Current chain head hash is invalid")
         return head, result.get("ETag")
     except ClientError as exc:
         code = exc.response.get("Error", {}).get("Code", "")
