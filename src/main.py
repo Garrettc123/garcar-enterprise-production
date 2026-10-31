@@ -169,9 +169,20 @@ def prepare_review(payload: PermitPayload, digest: str) -> dict[str, Any]:
     }
 
 
+@app.get("/live")
+async def live() -> dict[str, str]:
+    return {"status": "alive"}
+
+
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok", "mode": "evidence-intake-only"}
+async def health() -> dict[str, Any]:
+    # Readiness is only true when Vault and the immutable ledger are reachable.
+    try:
+        config = load_runtime_config()
+        retention = verify_worm_configuration(_s3_client(), config["S3_LEDGER_BUCKET"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Required production dependencies are unavailable") from exc
+    return {"status": "ready", "mode": "evidence-intake-only", "ledger_retention": retention}
 
 
 @app.post("/webhook/permits/dfw", dependencies=[Depends(require_api_auth)])
