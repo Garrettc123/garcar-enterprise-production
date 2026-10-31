@@ -30,7 +30,7 @@ async def record_owner_approval(
     try:
         config = load_runtime_config()
         valid = verify_approval(
-            approval, signature, config.get("OWNER_APPROVAL_SIGNING_KEY", ""), permit_id
+            approval, signature, config.get("OWNER_APPROVAL_PUBLIC_KEY", ""), permit_id
         )
         if not valid:
             raise HTTPException(status_code=403, detail="Owner approval signature or scope is invalid")
