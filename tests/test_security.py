@@ -43,3 +43,15 @@ def test_missing_or_malformed_signature_is_rejected():
     assert not verify_permit_signature(b"{}", "", "sha256=bad", "secret")
     assert not verify_permit_signature(b"{}", "not-a-time", "sha256=bad", "secret")
     assert not verify_permit_signature(b"{}", "1800000000", "sha256=bad", "secret")
+
+
+def test_short_key_and_wrong_signature_scheme_are_rejected():
+    timestamp = 1_800_000_000
+    payload = b"{}"
+    assert not verify_permit_signature(
+        payload, str(timestamp), "sha256=" + ("a" * 64), "short-key", now=timestamp
+    )
+    assert not verify_permit_signature(
+        payload, str(timestamp), "v1=" + ("a" * 64),
+        "test-secret-with-more-than-32-bytes-long", now=timestamp
+    )
