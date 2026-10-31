@@ -20,7 +20,7 @@ class Settings:
         "SKU_SPRINT", "https://buy.stripe.com/aFa8wPdjfggO3QDcS743S1F"
     )
     storefront: str = os.getenv("STOREFRONT", "https://garrettc123.github.io/")
-    operator_email: str = os.getenv("OPERATOR_EMAIL", "garrett@garcar.io")
+    operator_email: str = os.getenv("OPERATOR_EMAIL", "gwc2780@gmail.com")
 
 
 settings = Settings()
