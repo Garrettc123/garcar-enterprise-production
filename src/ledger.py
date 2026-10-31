@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import time
@@ -39,6 +40,8 @@ def seal_record(
         }
     )
 
+    envelope_checksum = base64.b64encode(hashlib.sha256(envelope).digest()).decode("ascii")
+
     for attempt in range(3):
         try:
             response = client.put_object(
@@ -47,6 +50,10 @@ def seal_record(
                 Body=envelope,
                 ContentType="application/json",
                 ChecksumAlgorithm="SHA256",
+                Metadata={
+                    "garcar-record-sha256": digest,
+                    "garcar-envelope-sha256": envelope_checksum,
+                },
                 ObjectLockMode="COMPLIANCE",
                 ObjectLockRetainUntilDate=sealed_at
                 + timedelta(days=retention_days),
@@ -70,6 +77,14 @@ def seal_record(
                     raise LedgerError(
                         "Existing ledger object could not be verified"
                     ) from head_exc
+                metadata = head.get("Metadata", {})
+                if (
+                    metadata.get("garcar-record-sha256") != digest
+                    or metadata.get("garcar-envelope-sha256") != envelope_checksum
+                ):
+                    raise LedgerError(
+                        "Existing ledger object metadata does not match the requested record"
+                    )
                 return {
                     "sha256": digest,
                     "key": key,
