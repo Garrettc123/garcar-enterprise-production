@@ -35,7 +35,6 @@ def seal_record(
         {
             "record": record,
             "sha256": digest,
-            "sealed_at": sealed_at.isoformat(),
             "hash_algorithm": "SHA-256",
         }
     )
