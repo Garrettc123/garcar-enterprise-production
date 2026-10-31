@@ -4,7 +4,7 @@ No provider is configured by default. Missing source records remain unknown.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Protocol
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
@@ -21,7 +21,7 @@ class EvidenceRecord(BaseModel):
 
 class ContractorProfile(BaseModel):
     contractor_id: str
-    evidence: list[EvidenceRecord] = []
+    evidence: list[EvidenceRecord] = Field(default_factory=list)
     rating: float | None = None
     completed_project_count: int | None = None
     evidence_state: str = "UNKNOWN"
