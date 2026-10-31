@@ -79,7 +79,11 @@ def load_runtime_config() -> dict[str, str]:
     bucket = values.get("S3_LEDGER_BUCKET") or S3_BUCKET
     if not bucket:
         raise RuntimeError("S3_LEDGER_BUCKET is missing from Vault/configuration")
-    return {"S3_LEDGER_BUCKET": bucket}
+    return {
+        "S3_LEDGER_BUCKET": bucket,
+        "OWNER_APPROVAL_SIGNING_KEY": values.get("OWNER_APPROVAL_SIGNING_KEY", ""),
+        "STRIPE_WEBHOOK_SECRET": values.get("STRIPE_WEBHOOK_SECRET", ""),
+    }
 
 
 def require_api_auth(authorization: str | None = Header(default=None)) -> None:
@@ -186,3 +190,8 @@ async def ingest_permit(permit: PermitPayload) -> dict[str, Any]:
         # Do not leak credentials, Vault responses, bucket names, or provider internals.
         raise HTTPException(status_code=503, detail="Evidence intake unavailable; no approval or outreach occurred") from exc
     return prepare_review(permit, digest)
+
+
+# Routes are imported after core definitions to avoid circular initialization.
+from src.extended_routes import router as extended_router  # noqa: E402
+app.include_router(extended_router)
