@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import time
 from contextlib import asynccontextmanager
 
 import src.main as main
@@ -67,7 +68,7 @@ def test_permit_endpoint_accepts_valid_signed_request(monkeypatch):
         b'{"permit_id":"P-1","municipality":"DFW","contractor_name":"Example Co",'
         b'"property_address":"1 Main St","valuation":1000,"filing_date":"2026-10-30"}'
     )
-    timestamp = 1_800_000_000
+    timestamp = int(time.time())
     with TestClient(main.app) as client:
         response = client.post(
             "/webhook/permits/dfw",
