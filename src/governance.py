@@ -12,7 +12,7 @@ from typing import Literal
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class OwnerApproval(BaseModel):
@@ -25,6 +25,19 @@ class OwnerApproval(BaseModel):
     issued_at: datetime
     expires_at: datetime
     nonce: str = Field(min_length=16, max_length=128)
+
+    @field_validator("issued_at", "expires_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Approval timestamps must include a timezone")
+        return value
+
+    @model_validator(mode="after")
+    def require_positive_validity_window(self):
+        if self.expires_at <= self.issued_at:
+            raise ValueError("Approval expiry must be later than issue time")
+        return self
 
 
 def canonical_approval(approval: OwnerApproval) -> bytes:
