@@ -61,7 +61,9 @@ def verify_permit_signature(
     *,
     now: int | None = None,
 ) -> bool:
-    if not secret or not timestamp_header or not signature_header:
+    if len(secret.encode("utf-8")) < 32 or not timestamp_header or not signature_header:
+        return False
+    if not signature_header.startswith("sha256="):
         return False
     try:
         timestamp = int(timestamp_header)
