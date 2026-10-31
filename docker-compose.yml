@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   garcar-gateway:
     build: .
@@ -7,14 +6,17 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - VAULT_ADDR=${VAULT_ADDR:-http://127.0.0.1:8200}
-      - VAULT_TOKEN=${VAULT_TOKEN:-dev-root-token}
-      - S3_LEDGER_BUCKET=${S3_LEDGER_BUCKET:-garcar-enterprise-immutable-ledger}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-    networks:
-      - garcar-net
-networks:
-  garcar-net:
-    driver: bridge
+      ENVIRONMENT: production
+      REQUIRE_VAULT: "true"
+      VAULT_ADDR: ${VAULT_ADDR:?set VAULT_ADDR}
+      VAULT_AUTH_METHOD: ${VAULT_AUTH_METHOD:-token}
+      VAULT_TOKEN: ${VAULT_TOKEN:-}
+      VAULT_AWS_ROLE: ${VAULT_AWS_ROLE:-}
+      VAULT_MOUNT: secret
+      VAULT_PATH: garcar/production/keys
+      S3_LEDGER_BUCKET: ${S3_LEDGER_BUCKET:?set S3_LEDGER_BUCKET}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]

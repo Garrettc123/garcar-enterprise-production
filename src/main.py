@@ -1,191 +1,86 @@
-import os
-import hashlib
-import json
 import logging
-from typing import TypedDict, Literal, Dict, Any
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import boto3
-import stripe
+from contextlib import asynccontextmanager
+
 import hvac
-from langgraph.graph import StateGraph, START, END
+import stripe
+from stripe import SignatureVerificationError
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("garcar-gateway")
+from .config import settings
+from .ledger import LedgerError, seal_record
+from .orchestrator import PermitInput, evaluate_permit
+from .payouts import record_verified_payout
 
-def load_vault_secrets() -> Dict[str, str]:
-    vault_addr = os.getenv("VAULT_ADDR", "http://127.0.0.1:8200")
-    vault_token = os.getenv("VAULT_TOKEN", "dev-token")
-    try:
-        client = hvac.Client(url=vault_addr, token=vault_token)
-        if client.is_authenticated():
-            secret_response = client.secrets.kv.v2.read_secret_version(
-                mount_point="secret",
-                path="garcar/production/keys"
-            )
-            logger.info("Loaded secrets from HashiCorp Vault.")
-            return secret_response["data"]["data"]
-    except Exception as e:
-        logger.warning("Vault unavailable (%s). Falling back to environment variables.", e)
-    return {
-        "STRIPE_SECRET_KEY": os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder"),
-        "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", "mock_access_key"),
-        "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", "mock_secret_key"),
-        "S3_LEDGER_BUCKET": os.getenv("S3_LEDGER_BUCKET", "garcar-enterprise-immutable-ledger"),
-    }
+log = logging.getLogger("garcar")
+cfg = settings()
+vault_data: dict = {}
 
-SECRETS = load_vault_secrets()
-stripe.api_key = SECRETS.get("STRIPE_SECRET_KEY")
-S3_BUCKET_NAME = SECRETS.get("S3_LEDGER_BUCKET")
-
-s3_client = boto3.client(
-    "s3",
-    aws_access_key_id=SECRETS.get("AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=SECRETS.get("AWS_SECRET_ACCESS_KEY"),
-)
-
-class LeadState(TypedDict, total=False):
-    permit_id: str
-    municipality: str
-    contractor_name: str
-    property_address: str
-    valuation: float
-    description: str
-    filing_date: str
-    ledger_hash: str
-    graphrag_context: Dict[str, Any]
-    rhns_approved: bool
-    risk_score: float
-    outreach_draft: str
-    payment_link: str
-    status: str
-
-def ledger_lock_node(state: LeadState) -> LeadState:
-    logger.info("[Ledger] Sealing permit %s", state.get("permit_id"))
-    payload = {
-        "permit_id": state.get("permit_id"),
-        "municipality": state.get("municipality"),
-        "contractor_name": state.get("contractor_name"),
-        "valuation": state.get("valuation"),
-        "event_type": "ORCHESTRATION_INPUT_SEALED",
-    }
-    content_hash = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
-    s3_key = f"orchestration/leads/{str(state.get('municipality','unknown')).lower()}/{state.get('permit_id')}.json"
-    try:
-        s3_client.put_object(
-            Bucket=S3_BUCKET_NAME,
-            Key=s3_key,
-            Body=json.dumps({**payload, "sha256_hash": content_hash}, indent=2),
-            ContentType="application/json",
-        )
-        state["ledger_hash"] = content_hash
-        state["status"] = "LEDGER_LOCKED"
-    except Exception as e:
-        logger.error("Ledger write failed: %s", e)
-        state["status"] = f"LEDGER_FAILED: {e}"
-    return state
-
-def graphrag_enrich_node(state: LeadState) -> LeadState:
-    logger.info("[GraphRAG] Enriching %s", state.get("permit_id"))
-    state["graphrag_context"] = {
-        "contractor_rating": 4.9,
-        "past_projects_count": 22,
-        "market_segment": "Commercial Industrial DFW",
-        "trades": ["HVAC", "Roofing", "Plumbing"],
-    }
-    state["status"] = "GRAPHRAG_ENRICHED"
-    return state
-
-def rhns_guardrail_node(state: LeadState) -> LeadState:
-    logger.info("[RHNS] Evaluating %s", state.get("permit_id"))
-    valuation = float(state.get("valuation") or 0)
-    rating = float(state.get("graphrag_context", {}).get("contractor_rating", 0))
-    if valuation < 75000 and rating >= 4.0:
-        state["rhns_approved"] = True
-        state["risk_score"] = 0.08
-        state["status"] = "RHNS_AUTO_APPROVED"
+def _vault_client() -> hvac.Client:
+    client = hvac.Client(url=cfg.vault_addr)
+    if cfg.vault_auth_method == "token":
+        if not cfg.vault_token:
+            raise RuntimeError("VAULT_TOKEN is required for token authentication")
+        client.token = cfg.vault_token
+    elif cfg.vault_auth_method == "aws_iam":
+        if not cfg.vault_aws_role:
+            raise RuntimeError("VAULT_AWS_ROLE is required for AWS IAM authentication")
+        client.auth.aws.iam_login(role=cfg.vault_aws_role, mount_point="aws")
     else:
-        state["rhns_approved"] = False
-        state["risk_score"] = 0.91
-        state["status"] = "RHNS_REQUIRES_HUMAN_REVIEW"
-    return state
+        raise RuntimeError("Unsupported Vault authentication method")
+    if not client.is_authenticated():
+        raise RuntimeError("Vault authentication failed")
+    return client
 
-def outreach_generation_node(state: LeadState) -> LeadState:
-    logger.info("[Outreach] Drafting for %s", state.get("contractor_name"))
-    payment_link = "https://buy.stripe.com/3cI00j7YV0hQgDp8BR43S2v"
-    state["payment_link"] = payment_link
-    name = state.get("contractor_name") or "there"
-    address = state.get("property_address") or "your project"
-    val = state.get("valuation") or 0
-    state["outreach_draft"] = (
-        f"Hey {name} — Garrett in Grandview. "
-        f"Your permit at {address} (${val:,.0f}) just hit the system. "
-        f"I map the first-response gap where Texas HVAC/roofing/plumbing shops lose the job after the lead lands. "
-        f"$47, delivered to your email. If the map is wrong you say so. "
-        f"Pay: {payment_link}"
-    )
-    state["status"] = "OUTREACH_READY"
-    return state
+def webhook_secret() -> str:
+    secret = vault_data.get("STRIPE_WEBHOOK_SECRET", "")
+    if not secret and cfg.environment != "production":
+        secret = cfg.stripe_webhook_secret
+    return secret
 
-def route_after_guardrails(state: LeadState) -> Literal["outreach_gen", "end"]:
-    return "outreach_gen" if state.get("rhns_approved") else "end"
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global vault_data
+    if cfg.require_vault:
+        client = _vault_client()
+        response = client.secrets.kv.v2.read_secret_version(mount_point=cfg.vault_mount, path=cfg.vault_path)
+        vault_data = response["data"]["data"]
+        if cfg.environment == "production" and not vault_data.get("STRIPE_WEBHOOK_SECRET"):
+            raise RuntimeError("Production Stripe webhook signing secret is missing from Vault")
+    else:
+        if cfg.environment == "production":
+            raise RuntimeError("Vault cannot be disabled in production")
+        vault_data = {}
+    yield
+    vault_data = {}
 
-def build_lead_orchestrator():
-    workflow = StateGraph(LeadState)
-    workflow.add_node("ledger_lock", ledger_lock_node)
-    workflow.add_node("graphrag_enrich", graphrag_enrich_node)
-    workflow.add_node("rhns_guardrails", rhns_guardrail_node)
-    workflow.add_node("outreach_gen", outreach_generation_node)
-    workflow.add_edge(START, "ledger_lock")
-    workflow.add_edge("ledger_lock", "graphrag_enrich")
-    workflow.add_edge("graphrag_enrich", "rhns_guardrails")
-    workflow.add_conditional_edges(
-        "rhns_guardrails",
-        route_after_guardrails,
-        {"outreach_gen": "outreach_gen", "end": END},
-    )
-    workflow.add_edge("outreach_gen", END)
-    return workflow.compile()
-
-compiled_graph = build_lead_orchestrator()
-
-app = FastAPI(title="Garcar Enterprise Zero-Human Autonomous Wealth Engine")
-
-class PermitPayload(BaseModel):
-    permit_id: str
-    municipality: str
-    contractor_name: str
-    property_address: str
-    valuation: float
-    description: str
-    filing_date: str
+app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.2.0", lifespan=lifespan)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "garcar-gateway", "ledger_bucket": S3_BUCKET_NAME}
+    return {"status": "ok", "environment": cfg.environment, "execution_mode": "guarded"}
 
 @app.post("/webhook/permits/dfw")
-async def ingest_permit(permit: PermitPayload):
-    initial_state: LeadState = {
-        **permit.model_dump(),
-        "ledger_hash": "",
-        "graphrag_context": {},
-        "rhns_approved": False,
-        "risk_score": 0.0,
-        "outreach_draft": "",
-        "payment_link": "",
-        "status": "INITIALIZED",
-    }
+async def ingest_permit(permit: PermitInput):
+    record = {"event_type": "PERMIT_INGESTED", **permit.model_dump()}
     try:
-        final_state = compiled_graph.invoke(initial_state)
-        return {
-            "status": "success",
-            "execution_status": final_state.get("status"),
-            "ledger_hash": final_state.get("ledger_hash"),
-            "rhns_approved": final_state.get("rhns_approved"),
-            "outreach_draft": final_state.get("outreach_draft"),
-            "payment_link": final_state.get("payment_link"),
-        }
-    except Exception as e:
-        logger.exception("Orchestrator failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        ledger = seal_record(record, cfg.s3_ledger_bucket, cfg.aws_region, cfg.ledger_retention_days)
+    except LedgerError as exc:
+        raise HTTPException(status_code=503, detail="Ledger unavailable; request not processed") from exc
+    return {"status": "recorded", "ledger": ledger, "decision": evaluate_permit(permit)}
+
+@app.post("/webhook/payouts")
+async def stripe_payout_webhook(request: Request):
+    secret = webhook_secret()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Stripe webhook verification is not configured")
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature", "")
+    try:
+        event = stripe.Webhook.construct_event(payload, signature, secret)
+        result = record_verified_payout(event, bucket=cfg.s3_ledger_bucket, region=cfg.aws_region, retention_days=cfg.ledger_retention_days)
+    except (ValueError, SignatureVerificationError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid webhook payload or signature") from exc
+    except LedgerError as exc:
+        raise HTTPException(status_code=503, detail="Ledger unavailable; webhook not acknowledged") from exc
+    return JSONResponse({"status": "received", "ledger": result})
