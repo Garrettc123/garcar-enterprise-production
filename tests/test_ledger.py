@@ -104,3 +104,35 @@ def test_seal_record_rejects_existing_object_with_wrong_metadata(monkeypatch):
     monkeypatch.setattr(ledger.boto3, "client", lambda *a, **k: fake)
     with pytest.raises(ledger.LedgerError, match="metadata does not match"):
         ledger.seal_record({"id": "collision"}, "ledger-bucket", "us-east-1", 30)
+
+
+def test_duplicate_same_record_matches_across_separate_calls(monkeypatch):
+    from botocore.exceptions import ClientError
+
+    class StoreThenConflict(FakeS3):
+        def __init__(self):
+            super().__init__()
+            self.saved_metadata = None
+            self.calls = 0
+
+        def put_object(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                self.saved_metadata = kwargs["Metadata"]
+                return {"VersionId": "first-version"}
+            raise ClientError(
+                {"Error": {"Code": "PreconditionFailed"},
+                 "ResponseMetadata": {"HTTPStatusCode": 412}},
+                "PutObject",
+            )
+
+        def head_object(self, **kwargs):
+            return {"VersionId": "first-version", "Metadata": self.saved_metadata}
+
+    fake = StoreThenConflict()
+    monkeypatch.setattr(ledger.boto3, "client", lambda *a, **k: fake)
+    first = ledger.seal_record({"id": "stable"}, "ledger-bucket", "us-east-1", 30)
+    second = ledger.seal_record({"id": "stable"}, "ledger-bucket", "us-east-1", 30)
+    assert first["result"] == "sealed"
+    assert second["result"] == "already_sealed"
+    assert second["version_id"] == "first-version"
