@@ -13,29 +13,29 @@ def make_signature(payload: bytes, timestamp: int, secret: str) -> str:
 def test_valid_permit_signature_is_accepted():
     payload = b'{"permit_id":"P-1"}'
     timestamp = 1_800_000_000
-    signature = make_signature(payload, timestamp, "test-secret")
+    signature = make_signature(payload, timestamp, "test-secret-with-more-than-32-bytes-long")
     assert verify_permit_signature(
-        payload, str(timestamp), signature, "test-secret", now=timestamp
+        payload, str(timestamp), signature, "test-secret-with-more-than-32-bytes-long", now=timestamp
     )
 
 
 def test_tampered_payload_is_rejected():
     timestamp = 1_800_000_000
-    signature = make_signature(b'{"permit_id":"P-1"}', timestamp, "test-secret")
+    signature = make_signature(b'{"permit_id":"P-1"}', timestamp, "test-secret-with-more-than-32-bytes-long")
     assert not verify_permit_signature(
         b'{"permit_id":"P-2"}',
         str(timestamp),
         signature,
-        "test-secret",
+        "test-secret-with-more-than-32-bytes-long",
         now=timestamp,
     )
 
 
 def test_expired_signature_is_rejected():
     timestamp = 1_800_000_000
-    signature = make_signature(b"{}", timestamp, "test-secret")
+    signature = make_signature(b"{}", timestamp, "test-secret-with-more-than-32-bytes-long")
     assert not verify_permit_signature(
-        b"{}", str(timestamp), signature, "test-secret", now=timestamp + 301
+        b"{}", str(timestamp), signature, "test-secret-with-more-than-32-bytes-long", now=timestamp + 301
     )
 
 
