@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class OwnerApproval(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    approval_id: str = Field(min_length=8, max_length=100)
+    approval_id: str = Field(min_length=8, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
     permit_id: str = Field(min_length=1, max_length=100)
     decision: Literal["approve_for_review", "reject"]
     allowed_actions: list[Literal["prepare_outreach_draft", "export_review_packet"]] = Field(min_length=1)
