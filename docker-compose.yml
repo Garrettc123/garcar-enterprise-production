@@ -12,7 +12,6 @@ services:
       VAULT_SECRET_ID: ${VAULT_SECRET_ID:?Set VAULT_SECRET_ID}
       VAULT_KV_PATH: ${VAULT_KV_PATH:-garcar/production/keys}
       VAULT_MOUNT: ${VAULT_MOUNT:-secret}
-      API_BEARER_TOKEN: ${API_BEARER_TOKEN:?Set API_BEARER_TOKEN}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       S3_LEDGER_BUCKET: ${S3_LEDGER_BUCKET:?Set S3_LEDGER_BUCKET}
     read_only: true
