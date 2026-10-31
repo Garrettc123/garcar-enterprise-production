@@ -23,7 +23,7 @@
 - Stripe webhook events must pass Stripe's signature verification.
 - Only a small allowlist of event metadata is retained for reconciliation. The full Stripe payload is not stored.
 - Stripe event recording is not payout authorization and does not move funds.
-- Store `STRIPE_WEBHOOK_SECRET` only in Vault.
+- Store `STRIPE_WEBHOOK_SECRET` and `API_BEARER_TOKEN` only in Vault.
 
 ## Production boundary
 - Terraform bucket creation remains disabled by default.
