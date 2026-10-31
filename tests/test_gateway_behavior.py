@@ -31,7 +31,7 @@ def test_vault_missing_configuration_fails_closed(monkeypatch):
 
 
 def test_authentication_rejects_missing_or_wrong_token(monkeypatch):
-    monkeypatch.setattr(main, "API_BEARER_TOKEN", "expected-secret")
+    monkeypatch.setattr(main, "load_runtime_config", lambda: {"API_BEARER_TOKEN": "expected-secret"})
     with pytest.raises(HTTPException) as missing:
         main.require_api_auth(None)
     assert missing.value.status_code == 401
@@ -39,6 +39,15 @@ def test_authentication_rejects_missing_or_wrong_token(monkeypatch):
         main.require_api_auth("Bearer wrong")
     assert wrong.value.status_code == 401
     assert main.require_api_auth("Bearer expected-secret") is None
+
+
+def test_authentication_fails_closed_when_vault_unavailable(monkeypatch):
+    def unavailable():
+        raise RuntimeError("vault unavailable")
+    monkeypatch.setattr(main, "load_runtime_config", unavailable)
+    with pytest.raises(HTTPException) as unavailable_response:
+        main.require_api_auth("Bearer any-token")
+    assert unavailable_response.value.status_code == 503
 
 
 def test_worm_verification_requires_compliance_and_versioning():
