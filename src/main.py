@@ -19,6 +19,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.hash_chain import append_event
+from src.evidence import build_contractor_profile
+from src.rhns_policy import PolicyContext, evaluate_rhns_policy
 
 APP_ENV = os.getenv("APP_ENV", "production")
 VAULT_ADDR = os.getenv("VAULT_ADDR")
@@ -137,17 +139,31 @@ def seal_event(payload: PermitPayload, config: dict[str, str]) -> str:
 
 
 def prepare_review(payload: PermitPayload, digest: str) -> dict[str, Any]:
-    # No fabricated ratings, inferred history, automatic approval, or outreach.
+    # The default evidence provider returns no records; no metrics are fabricated.
+    profile = build_contractor_profile(payload.contractor_name)
+    policy = evaluate_rhns_policy(
+        PolicyContext(
+            municipality=payload.municipality,
+            valuation=payload.valuation,
+            permit_source_verified=False,
+            contractor_identity_verified=False,
+            authority_verified=False,
+            owner_approval_verified=False,
+            evidence_refs=[str(item.source_uri) for item in profile.evidence],
+        )
+    )
     return {
-        "status": "HUMAN_REVIEW_REQUIRED",
+        "status": policy["decision"],
         "permit_id": payload.permit_id,
         "ledger_hash": digest,
-        "contractor_rating": None,
-        "past_projects_count": None,
-        "evidence_status": "NOT_ENRICHED",
+        "contractor_rating": profile.rating,
+        "past_projects_count": profile.completed_project_count,
+        "evidence_status": profile.evidence_state,
+        "policy_reasons": policy["reasons"],
+        "risk_score": policy["risk_score"],
         "approval": "NOT_GRANTED",
         "outreach": "NOT_SENT",
-        "next_action": "Verify source records and obtain explicit owner approval.",
+        "next_action": "Verify source records, budget authority, and obtain signed owner approval.",
     }
 
 
