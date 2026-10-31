@@ -32,31 +32,40 @@ Garrett Carrol · gwc2780@gmail.com · Grandview / Kopperl, TX
 
 ---
 
-## Production Gateway (synced 2026-10-30)
+## Guarded Evidence Gateway
 
-Zero-human DFW permit lead orchestrator:
+This repository contains a **guarded implementation**, not a claim of production deployment. The API records submitted evidence and prepares human-review records. It does not automatically approve contractors, send outreach, or initiate financial actions.
 
-- `src/main.py` — FastAPI + LangGraph 1.2.19
-  - Vault / env secrets
-  - S3 WORM ledger (SHA-256)
-  - GraphRAG enrichment (stub)
-  - RHNS guardrails (< $75k + rating ≥ 4.0 auto-approve)
-  - Outreach draft with LLA-47 payment link
-  - `GET /health` + `POST /webhook/permits/dfw`
-- `terraform/main.tf` — S3 Object Lock (COMPLIANCE, 1 year)
-- `Dockerfile` + `docker-compose.yml`
-- `.github/workflows/gateway-ci.yml` — smoke CI
-- `vault/policies/garcar-gateway.hcl`
+- FastAPI permit intake with strict payload validation.
+- Vault AppRole authentication with fail-closed behavior and credentials loaded from Vault.
+- AWS SDK workload identity; no hardcoded AWS credentials.
+- S3 Object Lock preflight and per-version COMPLIANCE retention verification.
+- Append-only SHA-256 event chain for permit intake, owner approvals, and Stripe event metadata.
+- RHNS policy gate that rejects missing source evidence, authority, budget, or owner approval.
+- Ed25519 approval verification using a public key; the private signing key stays offline.
+- Stripe webhook signature verification; event metadata is recorded only. No charge, refund, transfer, or payout is performed.
 
-### Quick start
+### Runtime configuration
+
+Container environment variables are limited to Vault AppRole connection values and non-secret platform settings:
+
+- `VAULT_ADDR`, `VAULT_ROLE_ID`, `VAULT_SECRET_ID`
+- `VAULT_KV_PATH=garcar/production/keys`, `VAULT_MOUNT=secret`
+- `AWS_REGION`, `S3_LEDGER_BUCKET`
+
+Vault KV v2 must contain `API_BEARER_TOKEN`, `OWNER_APPROVAL_PUBLIC_KEY`, `STRIPE_WEBHOOK_SECRET`, and `S3_LEDGER_BUCKET`. The AWS runtime identity must be authorized for the configured bucket. Do not place secrets in source control, README files, or chat.
+
+### Local container
+
 ```bash
-export STRIPE_SECRET_KEY=sk_...
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
-docker compose up --build -d
-curl http://localhost:8000/health
+# Configure the Vault connection and non-secret settings in your deployment secret manager.
+docker compose up --build
 ```
 
-Apply Terraform before S3 writes. GraphRAG is a stub until wired to real contractor data.
+The container listens on `PORT` (default 8000). `/live` reports process liveness. `/health` reports readiness only when Vault and the S3 Object Lock configuration are reachable and verified.
 
-Revenue loop: permit → ledger → qualify → outreach with live payment link → Stripe close.
+### Production status and gates
+
+The repository code is **not a production deployment by itself**. Before enabling production traffic, an owner must configure Vault AppRole access, the AWS workload identity, and an existing S3 bucket with versioning and COMPLIANCE retention. Terraform bucket creation is disabled by default because COMPLIANCE retention is difficult or impossible to shorten or remove for retained objects. Run the application tests, Terraform validation, S3 concurrency/recovery tests, and security review before release.
+
+GraphRAG enrichment is deliberately a no-data default until a real source provider is connected. Missing contractor ratings, project counts, or permit evidence remain unknown; no fabricated scores are used.
