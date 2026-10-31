@@ -1,22 +1,23 @@
 services:
   garcar-gateway:
     build: .
-    container_name: garcar-enterprise-gateway
+    image: garcar-enterprise-gateway:local
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      ENVIRONMENT: production
-      REQUIRE_VAULT: "true"
-      VAULT_ADDR: ${VAULT_ADDR:?set VAULT_ADDR}
-      VAULT_AUTH_METHOD: ${VAULT_AUTH_METHOD:-token}
-      VAULT_TOKEN: ${VAULT_TOKEN:-}
-      VAULT_AWS_ROLE: ${VAULT_AWS_ROLE:-}
-      VAULT_MOUNT: secret
-      VAULT_PATH: garcar/production/keys
-      S3_LEDGER_BUCKET: ${S3_LEDGER_BUCKET:?set S3_LEDGER_BUCKET}
+      APP_ENV: local
+      VAULT_ADDR: ${VAULT_ADDR:?Set VAULT_ADDR}
+      VAULT_ROLE_ID: ${VAULT_ROLE_ID:?Set VAULT_ROLE_ID}
+      VAULT_SECRET_ID: ${VAULT_SECRET_ID:?Set VAULT_SECRET_ID}
+      VAULT_KV_PATH: ${VAULT_KV_PATH:-garcar/production/keys}
+      VAULT_MOUNT: ${VAULT_MOUNT:-secret}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_LEDGER_BUCKET: ${S3_LEDGER_BUCKET:?Set S3_LEDGER_BUCKET}
     read_only: true
-    tmpfs: ["/tmp"]
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
