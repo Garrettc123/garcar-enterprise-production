@@ -50,7 +50,29 @@ def permit_ingest_secret() -> str:
     secret = vault_data.get("PERMIT_INGEST_HMAC_SECRET", "")
     if not secret and cfg.environment != "production":
         secret = cfg.permit_ingest_hmac_secret
-    return secret
+    return secret if isinstance(secret, str) else ""
+
+
+async def read_limited_body(request: Request, limit: int = 1_048_576) -> bytes:
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            declared_length = int(content_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length") from exc
+        if declared_length < 0:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length")
+        if declared_length > limit:
+            raise HTTPException(status_code=413, detail="Permit payload exceeds 1 MiB")
+
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > limit:
+            raise HTTPException(status_code=413, detail="Permit payload exceeds 1 MiB")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def verify_permit_signature(
@@ -137,9 +159,7 @@ async def ingest_permit(request: Request):
             status_code=503, detail="Permit webhook authentication is not configured"
         )
 
-    payload = await request.body()
-    if len(payload) > 1_048_576:
-        raise HTTPException(status_code=413, detail="Permit payload exceeds 1 MiB")
+    payload = await read_limited_body(request)
 
     timestamp = request.headers.get("x-garcar-timestamp", "")
     signature = request.headers.get("x-garcar-signature", "")
