@@ -40,9 +40,12 @@ def test_expired_signature_is_rejected():
 
 
 def test_missing_or_malformed_signature_is_rejected():
-    assert not verify_permit_signature(b"{}", "", "sha256=bad", "secret")
-    assert not verify_permit_signature(b"{}", "not-a-time", "sha256=bad", "secret")
-    assert not verify_permit_signature(b"{}", "1800000000", "sha256=bad", "secret")
+    secret = "test-secret-with-more-than-32-bytes-long"
+    timestamp = 1_800_000_000
+    signature = make_signature(b"{}", timestamp, secret)
+    assert not verify_permit_signature(b"{}", "", signature, secret, now=timestamp)
+    assert not verify_permit_signature(b"{}", "not-a-time", signature, secret, now=timestamp)
+    assert not verify_permit_signature(b"{}", str(timestamp), "sha256=bad", secret, now=timestamp)
 
 
 def test_short_key_and_wrong_signature_scheme_are_rejected():
