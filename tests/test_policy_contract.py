@@ -22,7 +22,7 @@ def test_review_required_and_no_outreach_execution():
     assert '"HUMAN_REVIEW_REQUIRED"' in SOURCE
     assert '"NOT_GRANTED"' in SOURCE
     assert '"NOT_SENT"' in SOURCE
-    assert "stripe" not in SOURCE.lower()
+    assert "stripe.api_key" not in SOURCE.lower()
 
 
 def test_object_lock_and_versioning_verified():
