@@ -17,6 +17,7 @@ def test_fail_closed_vault_and_no_environment_fallback():
     assert "refusing fallback credentials" in SOURCE
     assert "load_runtime_config()" in SOURCE
     assert "STRIPE_SECRET_KEY" not in SOURCE
+    assert "API_BEARER_TOKEN = os.getenv" not in SOURCE
 
 
 def test_review_required_and_no_outreach_execution():
