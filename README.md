@@ -82,7 +82,7 @@ The container listens on `PORT` (default 8000). `/live` reports process liveness
 ## Verification commands
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 ruff check src tests
 pytest -q
 python -m compileall -q src tests
