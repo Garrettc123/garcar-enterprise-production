@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import hvac
 import stripe
+from stripe import SignatureVerificationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
@@ -78,7 +79,7 @@ async def stripe_payout_webhook(request: Request):
     try:
         event = stripe.Webhook.construct_event(payload, signature, secret)
         result = record_verified_payout(event, bucket=cfg.s3_ledger_bucket, region=cfg.aws_region, retention_days=cfg.ledger_retention_days)
-    except (ValueError, stripe.error.SignatureVerificationError) as exc:
+    except (ValueError, SignatureVerificationError) as exc:
         raise HTTPException(status_code=400, detail="Invalid webhook payload or signature") from exc
     except LedgerError as exc:
         raise HTTPException(status_code=503, detail="Ledger unavailable; webhook not acknowledged") from exc
