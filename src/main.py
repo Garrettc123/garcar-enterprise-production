@@ -132,7 +132,7 @@ def seal_event(payload: PermitPayload, config: dict[str, str]) -> str:
     body = json.dumps({**record, "sha256": digest}, sort_keys=True, indent=2).encode()
     key = f"evidence/permit-events/{payload.event_id}.json"
     try:
-        s3.put_object(
+        write_result = s3.put_object(
             Bucket=bucket,
             Key=key,
             Body=body,
@@ -140,6 +140,12 @@ def seal_event(payload: PermitPayload, config: dict[str, str]) -> str:
             Metadata={"sha256": digest, "event-id": str(payload.event_id)},
             IfNoneMatch="*",
         )
+        version_id = write_result.get("VersionId")
+        if not version_id:
+            raise RuntimeError("S3 did not return a version ID; ledger write is not accepted")
+        stored = s3.head_object(Bucket=bucket, Key=key, VersionId=version_id)
+        if stored.get("ObjectLockMode") != "COMPLIANCE" or not stored.get("ObjectLockRetainUntilDate"):
+            raise RuntimeError("Stored object does not have verified COMPLIANCE retention")
     except ClientError as exc:
         code = exc.response.get("Error", {}).get("Code", "")
         if code in {"PreconditionFailed", "412", "ConditionalRequestConflict"}:
