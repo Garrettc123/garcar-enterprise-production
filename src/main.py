@@ -85,7 +85,7 @@ def load_runtime_config() -> dict[str, str]:
         raise RuntimeError("S3_LEDGER_BUCKET is missing from Vault/configuration")
     return {
         "S3_LEDGER_BUCKET": bucket,
-        "OWNER_APPROVAL_SIGNING_KEY": values.get("OWNER_APPROVAL_SIGNING_KEY", ""),
+        "OWNER_APPROVAL_PUBLIC_KEY": values.get("OWNER_APPROVAL_PUBLIC_KEY", ""),
         "STRIPE_WEBHOOK_SECRET": values.get("STRIPE_WEBHOOK_SECRET", ""),
     }
 
