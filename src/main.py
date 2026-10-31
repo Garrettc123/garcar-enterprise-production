@@ -100,6 +100,11 @@ async def lifespan(app: FastAPI):
                     "Required production webhook secrets are missing from Vault: "
                     + ", ".join(missing)
                 )
+            permit_secret = vault_data["PERMIT_INGEST_HMAC_SECRET"]
+            if not isinstance(permit_secret, str) or len(permit_secret.encode("utf-8")) < 32:
+                raise RuntimeError(
+                    "PERMIT_INGEST_HMAC_SECRET must contain at least 32 UTF-8 bytes"
+                )
     else:
         if cfg.environment == "production":
             raise RuntimeError("Vault cannot be disabled in production")
