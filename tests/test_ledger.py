@@ -26,3 +26,52 @@ def test_seal_record_fails_without_bucket():
     import pytest
     with pytest.raises(ledger.LedgerError):
         ledger.seal_record({"x": 1}, "", "us-east-1", 30)
+
+
+def test_seal_record_retries_conditional_conflict(monkeypatch):
+    from botocore.exceptions import ClientError
+
+    class ConflictThenSuccess(FakeS3):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def put_object(self, **kwargs):
+            self.calls += 1
+            self.args = kwargs
+            if self.calls == 1:
+                raise ClientError(
+                    {"Error": {"Code": "ConditionalRequestConflict"},
+                     "ResponseMetadata": {"HTTPStatusCode": 409}},
+                    "PutObject",
+                )
+            return {"VersionId": "v2"}
+
+    fake = ConflictThenSuccess()
+    monkeypatch.setattr(ledger.boto3, "client", lambda *a, **k: fake)
+    monkeypatch.setattr(ledger.time, "sleep", lambda _: None)
+    result = ledger.seal_record({"id": "conflict"}, "ledger-bucket", "us-east-1", 30)
+    assert result["result"] == "sealed"
+    assert fake.calls == 2
+    assert fake.args["ChecksumAlgorithm"] == "SHA256"
+
+
+def test_seal_record_duplicate_returns_existing_version(monkeypatch):
+    from botocore.exceptions import ClientError
+
+    class ExistingObject(FakeS3):
+        def put_object(self, **kwargs):
+            raise ClientError(
+                {"Error": {"Code": "PreconditionFailed"},
+                 "ResponseMetadata": {"HTTPStatusCode": 412}},
+                "PutObject",
+            )
+
+        def head_object(self, **kwargs):
+            return {"VersionId": "existing-v1"}
+
+    fake = ExistingObject()
+    monkeypatch.setattr(ledger.boto3, "client", lambda *a, **k: fake)
+    result = ledger.seal_record({"id": "duplicate"}, "ledger-bucket", "us-east-1", 30)
+    assert result["result"] == "already_sealed"
+    assert result["version_id"] == "existing-v1"
