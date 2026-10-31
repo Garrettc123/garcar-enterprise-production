@@ -1,5 +1,4 @@
 """Tests for append-only ledger sequencing and Stripe webhook policy."""
-from unittest.mock import Mock
 import pytest
 import stripe
 from botocore.exceptions import ClientError
