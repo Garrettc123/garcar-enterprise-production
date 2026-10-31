@@ -28,7 +28,6 @@ VAULT_ROLE_ID = os.getenv("VAULT_ROLE_ID")
 VAULT_SECRET_ID = os.getenv("VAULT_SECRET_ID")
 VAULT_KV_PATH = os.getenv("VAULT_KV_PATH", "garcar/production/keys")
 VAULT_MOUNT = os.getenv("VAULT_MOUNT", "secret")
-API_BEARER_TOKEN = os.getenv("API_BEARER_TOKEN")
 S3_BUCKET = os.getenv("S3_LEDGER_BUCKET")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
@@ -87,13 +86,18 @@ def load_runtime_config() -> dict[str, str]:
         "S3_LEDGER_BUCKET": bucket,
         "OWNER_APPROVAL_PUBLIC_KEY": values.get("OWNER_APPROVAL_PUBLIC_KEY", ""),
         "STRIPE_WEBHOOK_SECRET": values.get("STRIPE_WEBHOOK_SECRET", ""),
+        "API_BEARER_TOKEN": values.get("API_BEARER_TOKEN", ""),
     }
 
 
 def require_api_auth(authorization: str | None = Header(default=None)) -> None:
-    if not API_BEARER_TOKEN:
+    try:
+        expected_token = load_runtime_config().get("API_BEARER_TOKEN", "")
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="API authentication service unavailable") from exc
+    if not expected_token:
         raise HTTPException(status_code=503, detail="API authentication is not configured")
-    expected = f"Bearer {API_BEARER_TOKEN}"
+    expected = f"Bearer {expected_token}"
     if authorization is None or not __import__("hmac").compare_digest(authorization, expected):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
