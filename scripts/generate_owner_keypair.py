@@ -43,7 +43,7 @@ def main() -> int:
     public_b64 = base64.b64encode(public_raw).decode("ascii")
     write_new_private_file(private_path, private_pem)
     try:
-        public_path.write_text(public_b64 + "\n", encoding="utf-8")
+        write_new_private_file(public_path, (public_b64 + "\n").encode("utf-8"))
     except Exception:
         private_path.unlink(missing_ok=True)
         raise
