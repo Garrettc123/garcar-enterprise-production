@@ -1,9 +1,12 @@
+import asyncio
 import hashlib
 import hmac
 import time
 from contextlib import asynccontextmanager
 
 import src.main as main
+from fastapi import HTTPException
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -100,3 +103,17 @@ def test_permit_endpoint_rejects_oversized_payload(monkeypatch):
             content=b"x" * (1_048_577),
         )
     assert response.status_code == 413
+
+
+
+def test_streaming_body_reader_stops_when_limit_is_exceeded():
+    class ChunkedRequest:
+        headers = {}
+
+        async def stream(self):
+            yield b"x" * 700_000
+            yield b"y" * 400_000
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(main.read_limited_body(ChunkedRequest(), limit=1_048_576))
+    assert error.value.status_code == 413
