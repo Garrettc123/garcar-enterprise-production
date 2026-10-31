@@ -18,6 +18,8 @@ from botocore.exceptions import ClientError
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.hash_chain import append_event
+
 APP_ENV = os.getenv("APP_ENV", "production")
 VAULT_ADDR = os.getenv("VAULT_ADDR")
 VAULT_ROLE_ID = os.getenv("VAULT_ROLE_ID")
@@ -121,42 +123,17 @@ def verify_worm_configuration(s3: Any, bucket: str) -> dict[str, Any]:
 
 def seal_event(payload: PermitPayload, config: dict[str, str]) -> str:
     s3 = _s3_client()
-    bucket = config["S3_LEDGER_BUCKET"]
-    retention = verify_worm_configuration(s3, bucket)
     record = {
         "schema_version": 1,
         "event_id": str(payload.event_id),
         "event_type": "PERMIT_INGESTED",
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "permit": payload.model_dump(mode="json"),
-        "retention_verified": retention,
     }
-    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-    digest = hashlib.sha256(canonical).hexdigest()
-    body = json.dumps({**record, "sha256": digest}, sort_keys=True, indent=2).encode()
-    key = f"evidence/permit-events/{payload.event_id}.json"
-    try:
-        write_result = s3.put_object(
-            Bucket=bucket,
-            Key=key,
-            Body=body,
-            ContentType="application/json",
-            Metadata={"sha256": digest, "event-id": str(payload.event_id)},
-            IfNoneMatch="*",
-        )
-        version_id = write_result.get("VersionId")
-        if not version_id:
-            raise RuntimeError("S3 did not return a version ID; ledger write is not accepted")
-        stored = s3.head_object(Bucket=bucket, Key=key, VersionId=version_id)
-        if stored.get("ObjectLockMode") != "COMPLIANCE" or not stored.get("ObjectLockRetainUntilDate"):
-            raise RuntimeError("Stored object does not have verified COMPLIANCE retention")
-    except ClientError as exc:
-        code = exc.response.get("Error", {}).get("Code", "")
-        if code in {"PreconditionFailed", "412", "ConditionalRequestConflict"}:
-            # Duplicate event IDs are not silently overwritten.
-            raise HTTPException(status_code=409, detail="event_id already exists") from exc
-        raise RuntimeError("Evidence ledger write failed") from exc
-    return digest
+    return append_event(
+        s3, config["S3_LEDGER_BUCKET"], str(payload.event_id), record,
+        verify_worm_configuration,
+    )
 
 
 def prepare_review(payload: PermitPayload, digest: str) -> dict[str, Any]:
