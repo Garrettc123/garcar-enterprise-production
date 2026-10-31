@@ -1,6 +1,6 @@
 """Tests for append-only ledger sequencing and Stripe webhook policy."""
 import pytest
-import stripe
+from stripe import SignatureVerificationError
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
@@ -69,7 +69,7 @@ def test_stripe_webhook_requires_signature_configuration():
 
 def test_stripe_webhook_rejects_bad_signature(monkeypatch):
     def reject(*_args):
-        raise stripe.error.SignatureVerificationError("bad signature", "sig_header")
+        raise SignatureVerificationError("bad signature", "sig_header")
     monkeypatch.setattr(stripe.Webhook, "construct_event", reject)
     with pytest.raises(HTTPException) as invalid:
         verify_stripe_event(b"{}", "bad", "whsec_test")
