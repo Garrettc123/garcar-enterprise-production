@@ -40,8 +40,15 @@ def _database_url() -> str:
 
 @contextmanager
 def db_connection() -> Iterator[psycopg.Connection]:
-    conn = psycopg.connect(_database_url(), row_factory=dict_row)
-    register_vector(conn)
+    try:
+        conn = psycopg.connect(_database_url(), row_factory=dict_row)
+        register_vector(conn)
+    except psycopg.Error as exc:
+        try:
+            conn.close()
+        except (NameError, UnboundLocalError):
+            pass
+        raise HTTPException(status_code=503, detail="Governance database unavailable") from exc
     try:
         yield conn
     finally:
@@ -201,6 +208,12 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
     with db_connection() as conn:
         with conn.transaction():
             with conn.cursor() as cur:
+                # Lock the control row while verifying so a concurrent kill-switch
+                # activation cannot pass this gate unnoticed.
+                cur.execute("SELECT enabled FROM enterprise_control_state WHERE control_name='execution_kill_switch' FOR SHARE")
+                control = cur.fetchone()
+                if not control or control["enabled"]:
+                    raise HTTPException(status_code=503, detail="Execution is blocked: kill switch active or control state unavailable")
                 cur.execute("SELECT * FROM enterprise_proposals WHERE proposal_id=%s FOR UPDATE", (payload.proposal_id,))
                 proposal = cur.fetchone()
                 if not proposal:
@@ -241,8 +254,6 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
 @router.post("/governance/verify")
 def verify_execution(payload: VerificationRequest, actor: str = Depends(require_agent),
                      x_execution_signature: str = Header(default="", alias="X-Execution-Signature")) -> dict[str, Any]:
-    if execution_is_blocked():
-        raise HTTPException(status_code=503, detail="Emergency kill switch active; execution verification halted")
     if payload.receipt.get("success") is not True:
         raise HTTPException(status_code=422, detail="Receipt must explicitly attest success=true")
     signing_key = _secret("GARCAR_EXECUTION_SIGNING_KEY")
@@ -332,6 +343,7 @@ def set_kill_switch(enabled: bool, owner: str = Depends(require_owner)) -> dict[
 
 
 def execution_is_blocked() -> bool:
+    # Missing control state is a security failure, not permission to execute.
     with db_connection() as conn:
         row = conn.execute("SELECT enabled FROM enterprise_control_state WHERE control_name='execution_kill_switch'").fetchone()
-    return bool(row and row["enabled"])
+    return True if row is None else bool(row["enabled"])
