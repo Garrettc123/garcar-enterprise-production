@@ -120,7 +120,39 @@ def verify_worm_configuration(s3: Any, bucket: str) -> dict[str, Any]:
         raise RuntimeError("Default retention must be COMPLIANCE")
     if not retention.get("Days") and not retention.get("Years"):
         raise RuntimeError("Default compliance retention period is missing")
-    return {"mode": retention["Mode"], "days": retention.get("Days"), "years": retention.get("Years")}
+
+    try:
+        public_access = s3.get_public_access_block(Bucket=bucket).get(
+            "PublicAccessBlockConfiguration", {}
+        )
+        encryption_rules = s3.get_bucket_encryption(Bucket=bucket).get(
+            "ServerSideEncryptionConfiguration", {}
+        ).get("Rules", [])
+    except ClientError as exc:
+        raise RuntimeError("Unable to verify S3 public-access and encryption controls") from exc
+
+    required_public_controls = (
+        "BlockPublicAcls",
+        "IgnorePublicAcls",
+        "BlockPublicPolicy",
+        "RestrictPublicBuckets",
+    )
+    if not all(public_access.get(control) is True for control in required_public_controls):
+        raise RuntimeError("All four S3 Block Public Access settings must be enabled")
+    algorithms = [
+        rule.get("ApplyServerSideEncryptionByDefault", {}).get("SSEAlgorithm")
+        for rule in encryption_rules
+    ]
+    if not algorithms or any(value not in {"AES256", "aws:kms"} for value in algorithms):
+        raise RuntimeError("S3 default server-side encryption must be AES256 or AWS KMS")
+
+    return {
+        "mode": retention["Mode"],
+        "days": retention.get("Days"),
+        "years": retention.get("Years"),
+        "public_access_blocked": True,
+        "encryption": sorted(set(algorithms)),
+    }
 
 
 def seal_event(payload: PermitPayload, config: dict[str, str]) -> str:
