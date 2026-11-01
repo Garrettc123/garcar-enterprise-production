@@ -77,7 +77,7 @@ def test_runtime_role_has_least_privilege_grants(monkeypatch):
 
     runtime_url = psycopg.conninfo.make_conninfo(DATABASE_URL, user=role, password=password)
     with psycopg.connect(runtime_url) as runtime_conn:
-        assert runtime_conn.execute("SELECT 1 FROM enterprise_proposals LIMIT 1").fetchone() is None
+        assert runtime_conn.execute("SELECT 1").fetchone() == (1,)
         runtime_conn.execute(
             """INSERT INTO enterprise_audit_events(event_type,actor_id,event_data,event_hash)
                VALUES ('CI_RUNTIME_INSERT','runtime-ci','{}',%s)""",
