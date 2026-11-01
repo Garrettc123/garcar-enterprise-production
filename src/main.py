@@ -159,8 +159,10 @@ def verify_worm_configuration(s3: Any, bucket: str) -> dict[str, Any]:
         rule.get("ApplyServerSideEncryptionByDefault", {}).get("SSEAlgorithm")
         for rule in encryption_rules
     ]
-    if not algorithms or any(value not in {"AES256", "aws:kms"} for value in algorithms):
-        raise RuntimeError("S3 default server-side encryption must be AES256 or AWS KMS")
+    if not algorithms or any(value != "AES256" for value in algorithms):
+        raise RuntimeError(
+            "S3 default server-side encryption must be AES256; KMS requires a separately reviewed runtime policy"
+        )
 
     return {
         "mode": retention["Mode"],
