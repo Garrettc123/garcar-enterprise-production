@@ -40,6 +40,7 @@ All routes are under `/v1`.
 - `POST /governance/propose` — agent submits an idempotent proposal.
 - `POST /governance/evaluate` — owner independently approves or rejects a proposal.
 - `POST /governance/verify` — agent submits a one-time grant and signed executor receipt.
+- `GET /governance/execution-allowed` — authenticated executors check the persistent stop before side effects.
 - `POST /governance/kill-switch?enabled=true|false` — owner controls the persistent execution stop.
 - `POST /memory/store` — store a 1536-dimensional embedding.
 - `POST /memory/search` — namespace-scoped cosine similarity search.
