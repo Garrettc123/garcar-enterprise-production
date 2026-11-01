@@ -17,13 +17,17 @@ or deploy cloud infrastructure.
 No static AWS keys, Vault root token, fake provider credentials, or secret fallbacks are included.
 
 ## Immutable ledger requirements
-Before writing an event, the service verifies S3 Object Lock is enabled, bucket versioning
-is enabled, and default retention mode is COMPLIANCE. Each event is written to a shared sequence with a previous-event hash, a conditional head update, and a unique event-ID reservation. A concurrent head conflict fails closed and requires manual reconciliation of the orphaned immutable event before writes resume.
+Before accepting traffic, readiness verifies S3 Object Lock, bucket versioning, default COMPLIANCE retention, all four S3 Block Public Access flags, and default server-side encryption (AES256 or AWS KMS). Each event is written to a shared sequence with a previous-event hash, a conditional head update, and a unique event-ID reservation. A concurrent head conflict fails closed and requires manual reconciliation of the orphaned immutable event before writes resume.
+
+## Runtime AWS permissions
+
+Attach the managed policy created by `terraform/iam.tf` to the dedicated workload role used by the service. It grants only bucket-configuration reads, event-prefix listing, object reads/version reads/retention inspection, and object writes under `evidence/*`. It grants no object deletion, bucket creation, bucket-policy changes, retention configuration changes, or retention shortening. The caller must have `s3:GetObjectRetention` to inspect Object Lock metadata returned by object reads/HEAD requests. AWS documents that retention metadata is returned only when the requester has that permission.
 
 S3 Object Lock COMPLIANCE retention is legally and operationally consequential. Terraform
 bucket creation is disabled by default. Supply a retention period and explicitly enable
 bucket creation only after legal, cost, and recovery review. Do not apply Terraform to a
-production account as part of routine CI.
+production account as part of routine CI. The IAM policy is a separate managed policy; the
+hosting platform must provide the trust relationship and attach it to the actual workload identity.
 
 ## Approval boundary
 Every permit remains HUMAN_REVIEW_REQUIRED. Contractor rating and project history are
