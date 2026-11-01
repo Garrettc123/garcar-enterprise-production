@@ -5,6 +5,7 @@ approves a contractor, or initiates a payment.
 """
 from __future__ import annotations
 
+import base64
 import hmac
 import os
 from datetime import datetime, timezone
@@ -67,6 +68,30 @@ def _vault_client() -> hvac.Client:
     return client
 
 
+def validate_runtime_config(values: dict[str, Any]) -> dict[str, str]:
+    """Validate Vault KV values without logging or returning secret material to callers."""
+    config = {
+        "S3_LEDGER_BUCKET": values.get("S3_LEDGER_BUCKET") or S3_BUCKET or "",
+        "OWNER_APPROVAL_PUBLIC_KEY": values.get("OWNER_APPROVAL_PUBLIC_KEY") or "",
+        "STRIPE_WEBHOOK_SECRET": values.get("STRIPE_WEBHOOK_SECRET") or "",
+        "API_BEARER_TOKEN": values.get("API_BEARER_TOKEN") or "",
+    }
+    missing = [name for name, value in config.items() if not isinstance(value, str) or not value.strip()]
+    if missing:
+        raise RuntimeError("Required Vault/runtime values are missing: " + ", ".join(missing))
+    if len(config["API_BEARER_TOKEN"]) < 32:
+        raise RuntimeError("API_BEARER_TOKEN must contain at least 32 characters")
+    try:
+        public_key = base64.b64decode(config["OWNER_APPROVAL_PUBLIC_KEY"], validate=True)
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError("OWNER_APPROVAL_PUBLIC_KEY must be base64-encoded Ed25519 public-key bytes") from exc
+    if len(public_key) != 32:
+        raise RuntimeError("OWNER_APPROVAL_PUBLIC_KEY must decode to exactly 32 bytes")
+    if not config["STRIPE_WEBHOOK_SECRET"].startswith("whsec_"):
+        raise RuntimeError("STRIPE_WEBHOOK_SECRET has an invalid format")
+    return config
+
+
 def load_runtime_config() -> dict[str, str]:
     """Load runtime configuration from Vault; fail closed in every environment."""
     client = _vault_client()
@@ -75,15 +100,7 @@ def load_runtime_config() -> dict[str, str]:
         path=VAULT_KV_PATH,
     )
     values = response.get("data", {}).get("data", {})
-    bucket = values.get("S3_LEDGER_BUCKET") or S3_BUCKET
-    if not bucket:
-        raise RuntimeError("S3_LEDGER_BUCKET is missing from Vault/configuration")
-    return {
-        "S3_LEDGER_BUCKET": bucket,
-        "OWNER_APPROVAL_PUBLIC_KEY": values.get("OWNER_APPROVAL_PUBLIC_KEY", ""),
-        "STRIPE_WEBHOOK_SECRET": values.get("STRIPE_WEBHOOK_SECRET", ""),
-        "API_BEARER_TOKEN": values.get("API_BEARER_TOKEN", ""),
-    }
+    return validate_runtime_config(values)
 
 
 def require_api_auth(authorization: str | None = Header(default=None)) -> None:
