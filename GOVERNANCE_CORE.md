@@ -21,7 +21,9 @@ The existing container remains compatible by default. Enable database migrations
 
 For a local Compose deployment, set these secrets in the deployment environment (do not commit them):
 
-- `POSTGRES_PASSWORD`
+- `POSTGRES_PASSWORD` — PostgreSQL migration/admin credential (used only during startup migrations).
+- `GARCAR_RUNTIME_DB_PASSWORD` — separate URL-safe password of at least 32 characters for the non-superuser API role; `GARCAR_RUNTIME_DB_USER` defaults to `garcar_runtime`.
+- `POSTGRES_USER` defaults to `garcar_migrator`; it is the migration/admin role. The container removes `MIGRATIONS_DATABASE_URL` before launching Uvicorn so the API process does not retain the migration credential.
 - In the existing Vault KV v2 path `secret/garcar/production/keys`, provision `GARCAR_AGENT_API_KEYS` (comma-separated `agent_id:api_key` pairs; legacy bare keys receive a deterministic `agent_<sha256-prefix>` identity), `GARCAR_OWNER_API_KEY` (independent owner approval key), and `GARCAR_EXECUTION_SIGNING_KEY` (shared only with the trusted executor for receipt signing). The application fails production startup if any required secret is missing.
 
 Then run:
