@@ -106,6 +106,37 @@ def test_duplicate_completed_event_returns_original_hash():
     assert s3.get_object.call_count == 4
 
 
+def test_duplicate_receipt_rejects_mismatched_immutable_event():
+    record = {"event_type": "TEST", "value": 10}
+    request_hash = payload_hash(record)
+    chained_record = {
+        **record,
+        "chain": {"sequence": 7, "previous_hash": "b" * 64},
+    }
+    event_hash = payload_hash(chained_record)
+    tampered_event = {**chained_record, "sha256": event_hash, "value": 99}
+    s3 = Mock()
+    s3.put_object.side_effect = client_error("PreconditionFailed", "PutObject")
+    s3.get_object.side_effect = [
+        locked_json({
+            "event_id": "evt-123",
+            "payload_sha256": request_hash,
+            "state": "RESERVED",
+        }),
+        locked_json({
+            "event_id": "evt-123",
+            "payload_sha256": request_hash,
+            "event_hash": event_hash,
+            "sequence": 7,
+            "state": "COMMITTED",
+        }),
+        locked_json(tampered_event),
+    ]
+
+    with pytest.raises(RuntimeError, match="Stored event does not match"):
+        append_event(s3, "ledger", "evt-123", record, locked_bucket)
+
+
 def test_duplicate_event_id_with_changed_payload_is_rejected():
     original_hash = payload_hash({"event_type": "TEST", "value": 10})
     s3 = Mock()
