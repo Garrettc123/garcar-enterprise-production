@@ -64,6 +64,14 @@ def test_postgres_governance_vector_memory_and_kill_switch(client):
     assert response.status_code == 202
     assert response.json()["status"] == "PENDING_EVALUATION"
 
+    # Identical retries are idempotent; reusing an ID for different content conflicts.
+    duplicate = client.post("/v1/governance/propose", json=proposal, headers=agent_headers)
+    assert duplicate.status_code == 202
+    assert duplicate.json()["idempotent"] == "true"
+    conflicting = {**proposal, "parameters": {"amount_cents": 101}}
+    conflict = client.post("/v1/governance/propose", json=conflicting, headers=agent_headers)
+    assert conflict.status_code == 409
+
     response = client.post(
         "/v1/governance/evaluate",
         json={"proposal_id": proposal_id, "decision": "APPROVED", "note": "CI integration approval"},
@@ -116,8 +124,35 @@ def test_postgres_governance_vector_memory_and_kill_switch(client):
     assert found.status_code == 200
     assert any(item["content"] == "Garcar pgvector integration test" for item in found.json()["matches"])
 
+    # A second approved proposal must not pass verification after the stop is active.
+    blocked_id = "ci-blocked-" + uuid.uuid4().hex
+    blocked_proposal = {**proposal, "proposal_id": blocked_id}
+    created = client.post("/v1/governance/propose", json=blocked_proposal, headers=agent_headers)
+    assert created.status_code == 202
+    approved = client.post(
+        "/v1/governance/evaluate",
+        json={"proposal_id": blocked_id, "decision": "APPROVED", "note": "Second CI approval"},
+        headers=owner_headers,
+    )
+    assert approved.status_code == 200
+
     stopped = client.post("/v1/governance/kill-switch?enabled=true", headers=owner_headers)
     assert stopped.status_code == 200
     preflight = client.get("/v1/governance/execution-allowed", headers=agent_headers)
     assert preflight.status_code == 200
     assert preflight.json()["execution_allowed"] is False
+
+    blocked_receipt = {"success": True, "provider": "ci", "reference": blocked_id}
+    blocked_signed = _canonical({"proposal_id": blocked_id, "executor_id": "ci-executor", "receipt": blocked_receipt})
+    blocked_signature = hmac.new(EXECUTION_KEY.encode(), blocked_signed, hashlib.sha256).hexdigest()
+    blocked_verify = client.post(
+        "/v1/governance/verify",
+        json={
+            "proposal_id": blocked_id,
+            "authorization_token": approved.json()["authorization_token"],
+            "executor_id": "ci-executor",
+            "receipt": blocked_receipt,
+        },
+        headers={**agent_headers, "X-Execution-Signature": blocked_signature},
+    )
+    assert blocked_verify.status_code == 503
