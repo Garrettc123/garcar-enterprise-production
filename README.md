@@ -45,7 +45,7 @@ The permit intake and owner-approval routes are authenticated. Stripe webhook ro
 - Vault AppRole authentication; API bearer token, Stripe webhook secret, and owner public key are loaded from Vault KV v2. Missing Vault configuration fails closed.
 - AWS SDK default credential chain for workload identity; no static AWS keys or development credential fallbacks.
 - Private S3 bucket configuration with versioning, all four public-access blocks, server-side encryption, and Object Lock COMPLIANCE retention. Readiness checks verify each of these controls. Terraform bucket creation is disabled by default and protected from destruction.
-- Least-privilege runtime IAM managed policy in `terraform/iam.tf`; it permits only evidence-prefix listing, object read/version/retention inspection, object writes, and required bucket-configuration reads. It grants no delete or bucket/retention administration.
+- Least-privilege runtime IAM managed policy in `terraform/iam.tf`; it permits only event, reservation, and receipt prefix listing, object read/version/retention inspection, object writes, and required bucket-configuration reads. It grants no delete or bucket/retention administration.
 - Append-only SHA-256 event chain for permit intake, signed owner approvals, and Stripe event evidence. Immutable idempotency reservations and completion receipts allow identical retries to reuse the original hash while rejecting changed payloads.
 - Ed25519 approval signatures scoped to a permit, validity window, evidence references, and limited review/export actions. The application never receives the private signing key.
 - Deterministic evidence-first RHNS policy. Missing source records, identity, authority, budget, or approval keep permits in human review.
