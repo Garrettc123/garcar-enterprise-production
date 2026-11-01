@@ -11,6 +11,7 @@ from .config import settings
 from .ledger import LedgerError, seal_record
 from .orchestrator import PermitInput, evaluate_permit
 from .payouts import record_verified_payout
+from .governance.router import router as governance_router
 
 log = logging.getLogger("garcar")
 cfg = settings()
@@ -54,7 +55,8 @@ async def lifespan(app: FastAPI):
     yield
     vault_data = {}
 
-app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.3.0", lifespan=lifespan)
+app.include_router(governance_router)
 
 @app.get("/health")
 async def health():
