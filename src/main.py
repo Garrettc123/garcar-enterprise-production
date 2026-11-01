@@ -8,7 +8,6 @@ from __future__ import annotations
 import base64
 import hmac
 import os
-from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -178,7 +177,6 @@ def seal_event(payload: PermitPayload, config: dict[str, str]) -> str:
         "schema_version": 1,
         "event_id": str(payload.event_id),
         "event_type": "PERMIT_INGESTED",
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
         "permit": payload.model_dump(mode="json"),
     }
     return append_event(
