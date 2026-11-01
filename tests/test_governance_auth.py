@@ -89,18 +89,39 @@ def test_enabled_kill_switch_blocks_execution(monkeypatch):
     assert governance.execution_is_blocked() is True
 
 
-def test_database_errors_are_reported_as_unavailable(monkeypatch):
-    from contextlib import contextmanager
+def test_database_connection_errors_are_reported_as_unavailable(monkeypatch):
     import psycopg
     from fastapi import HTTPException
     from src.governance import router as governance
 
+    monkeypatch.setenv("DATABASE_URL", "postgresql://invalid:invalid@127.0.0.1:1/invalid")
+
+    def fail_connect(*_args, **_kwargs):
+        raise psycopg.OperationalError("simulated database outage")
+
+    monkeypatch.setattr(governance.psycopg, "connect", fail_connect)
+    with pytest.raises(HTTPException) as exc:
+        with governance.db_connection():
+            pass
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "Governance database unavailable"
+
+
+def test_disabled_kill_switch_allows_preflight(monkeypatch):
+    from contextlib import contextmanager
+    from src.governance import router as governance
+
+    class FakeResult:
+        def fetchone(self):
+            return {"enabled": False}
+
+    class FakeConnection:
+        def execute(self, *_args, **_kwargs):
+            return FakeResult()
+
     @contextmanager
     def fake_connection():
-        raise HTTPException(status_code=503, detail="Governance database unavailable")
-        yield
+        yield FakeConnection()
 
     monkeypatch.setattr(governance, "db_connection", fake_connection)
-    with pytest.raises(HTTPException) as exc:
-        governance.execution_is_blocked()
-    assert exc.value.status_code == 503
+    assert governance.execution_is_blocked() is False
