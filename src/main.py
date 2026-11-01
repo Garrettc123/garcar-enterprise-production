@@ -11,7 +11,7 @@ from .config import settings
 from .ledger import LedgerError, seal_record
 from .orchestrator import PermitInput, evaluate_permit
 from .payouts import record_verified_payout
-from .governance.router import router as governance_router
+from .governance.router import router as governance_router, configure_runtime_secrets
 
 log = logging.getLogger("garcar")
 cfg = settings()
@@ -46,12 +46,17 @@ async def lifespan(app: FastAPI):
         client = _vault_client()
         response = client.secrets.kv.v2.read_secret_version(mount_point=cfg.vault_mount, path=cfg.vault_path)
         vault_data = response["data"]["data"]
-        if cfg.environment == "production" and not vault_data.get("STRIPE_WEBHOOK_SECRET"):
-            raise RuntimeError("Production Stripe webhook signing secret is missing from Vault")
+        configure_runtime_secrets(vault_data)
+        if cfg.environment == "production":
+            required = ("STRIPE_WEBHOOK_SECRET", "GARCAR_AGENT_API_KEYS", "GARCAR_OWNER_API_KEY", "GARCAR_EXECUTION_SIGNING_KEY")
+            missing = [name for name in required if not vault_data.get(name)]
+            if missing:
+                raise RuntimeError("Required production secrets missing from Vault: " + ", ".join(missing))
     else:
         if cfg.environment == "production":
             raise RuntimeError("Vault cannot be disabled in production")
         vault_data = {}
+        configure_runtime_secrets({})
     yield
     vault_data = {}
 
