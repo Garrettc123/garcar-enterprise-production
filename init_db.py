@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import psycopg
+from psycopg import sql
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("garcar.migrations")
@@ -15,10 +16,67 @@ MIGRATION_VERSION = "001_governance_core"
 MIGRATION_FILE = Path(__file__).parent / "src" / "governance" / "migrations" / "001_governance_core.sql"
 
 
+def _provision_runtime_role(cur: psycopg.Cursor) -> None:
+    """Give the API a separate least-privilege role; migration credentials stay out of the app."""
+    role = os.getenv("GARCAR_RUNTIME_DB_USER", "").strip()
+    password = os.getenv("GARCAR_RUNTIME_DB_PASSWORD", "")
+    if not role and not password:
+        return
+    if not role or not password or len(password) < 32:
+        raise RuntimeError("Runtime DB role requires GARCAR_RUNTIME_DB_USER and a password of at least 32 characters")
+
+    cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
+    role_exists = cur.fetchone() is not None
+    statement = "ALTER ROLE {} LOGIN PASSWORD {}" if role_exists else "CREATE ROLE {} LOGIN PASSWORD {}"
+    cur.execute(sql.SQL(statement).format(sql.Identifier(role), sql.Literal(password)))
+    cur.execute("SELECT current_database()")
+    database_name = cur.fetchone()[0]
+    cur.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+        sql.Identifier(database_name), sql.Identifier(role)
+    ))
+    cur.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(role)))
+
+    grants = {
+        "enterprise_proposals": "SELECT, INSERT, UPDATE",
+        "enterprise_approvals": "SELECT, INSERT",
+        "enterprise_execution_events": "SELECT, INSERT",
+        "enterprise_audit_events": "SELECT, INSERT",
+        "enterprise_vector_memory": "SELECT, INSERT",
+        "enterprise_control_state": "SELECT, INSERT, UPDATE",
+    }
+    for table, privileges in grants.items():
+        cur.execute(sql.SQL("GRANT " + privileges + " ON TABLE {} TO {}").format(
+            sql.Identifier(table), sql.Identifier(role)
+        ))
+    cur.execute(sql.SQL("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {}").format(
+        sql.Identifier(role)
+    ))
+
+    # Preserve the same restrictions for objects created by future migrations.
+    owner = cur.execute("SELECT current_user").fetchone()[0]
+    defaults = {
+        "enterprise_proposals": "SELECT, INSERT, UPDATE",
+        "enterprise_approvals": "SELECT, INSERT",
+        "enterprise_execution_events": "SELECT, INSERT",
+        "enterprise_audit_events": "SELECT, INSERT",
+        "enterprise_vector_memory": "SELECT, INSERT",
+        "enterprise_control_state": "SELECT, INSERT, UPDATE",
+    }
+    for table, privileges in defaults.items():
+        cur.execute(sql.SQL("ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA public GRANT " + privileges + " ON TABLES TO {}").format(
+            sql.Identifier(owner), sql.Identifier(role)
+        ))
+    cur.execute(sql.SQL("ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {}").format(
+        sql.Identifier(owner), sql.Identifier(role)
+    ))
+    log.info("Provisioned least-privilege runtime database role %s", role)
+
+
 def run_migrations() -> None:
-    database_url = os.environ.get("DATABASE_URL")
+    # Prefer a separate migration/admin URL; DATABASE_URL remains the runtime app identity.
+    database_url = os.environ.get("MIGRATIONS_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not database_url:
-        raise RuntimeError("DATABASE_URL is required when ENABLE_GOVERNANCE_DB=true")
+        raise RuntimeError("MIGRATIONS_DATABASE_URL (or DATABASE_URL for local development) is required")
     if not MIGRATION_FILE.is_file():
         raise RuntimeError(f"Migration file missing: {MIGRATION_FILE}")
 
@@ -31,7 +89,7 @@ def run_migrations() -> None:
     conn = None
     for attempt in range(1, retries + 1):
         try:
-            log.info("Connecting to PostgreSQL (attempt %s/%s)", attempt, retries)
+            log.info("Connecting to PostgreSQL migrations endpoint (attempt %s/%s)", attempt, retries)
             conn = psycopg.connect(database_url, connect_timeout=5)
             break
         except psycopg.OperationalError:
@@ -45,7 +103,6 @@ def run_migrations() -> None:
     try:
         with conn:
             with conn.cursor() as cur:
-                # Serialize migration runners across replicas.
                 cur.execute("SELECT pg_advisory_xact_lock(%s)", (734_991_202_610_31,))
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS enterprise_schema_migrations (
@@ -54,13 +111,14 @@ def run_migrations() -> None:
                     )
                 """)
                 cur.execute("SELECT 1 FROM enterprise_schema_migrations WHERE version = %s", (MIGRATION_VERSION,))
-                if cur.fetchone():
+                if not cur.fetchone():
+                    # psycopg 3 simple-query mode permits ordered DDL in the migration.
+                    cur.execute(migration_sql, prepare=False)
+                    cur.execute("INSERT INTO enterprise_schema_migrations(version) VALUES (%s)", (MIGRATION_VERSION,))
+                    log.info("Migration %s applied successfully", MIGRATION_VERSION)
+                else:
                     log.info("Migration %s already applied", MIGRATION_VERSION)
-                    return
-                # psycopg 3's simple-query mode permits the migration's ordered DDL statements.
-                cur.execute(migration_sql, prepare=False)
-                cur.execute("INSERT INTO enterprise_schema_migrations(version) VALUES (%s)", (MIGRATION_VERSION,))
-        log.info("Migration %s applied successfully", MIGRATION_VERSION)
+                _provision_runtime_role(cur)
     finally:
         conn.close()
 
