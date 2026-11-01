@@ -63,10 +63,12 @@ Container environment variables:
 
 Vault KV v2 must contain:
 
-- `API_BEARER_TOKEN`
-- `OWNER_APPROVAL_PUBLIC_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `S3_LEDGER_BUCKET`
+- `API_BEARER_TOKEN` — at least 32 characters; generate locally with `python scripts/generate_api_token.py`.
+- `OWNER_APPROVAL_PUBLIC_KEY` — base64-encoded raw Ed25519 public key (exactly 32 decoded bytes); generate locally with `python scripts/generate_owner_keypair.py`.
+- `STRIPE_WEBHOOK_SECRET` — Stripe signing secret beginning with `whsec_`.
+- `S3_LEDGER_BUCKET`.
+
+The application validates these formats before reporting readiness. Keep generated tokens and private signing keys in a trusted local environment and Vault; never commit or paste them.
 
 The runtime AWS identity must use the managed policy in `terraform/iam.tf`, attached to a dedicated workload role whose trust relationship is configured by the chosen hosting platform. This policy includes `s3:GetObjectRetention`, required to inspect Object Lock retention metadata returned by object requests. Do not put credentials in source control, README files, PR comments, or chat.
 
