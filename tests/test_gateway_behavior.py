@@ -50,6 +50,22 @@ def test_authentication_fails_closed_when_vault_unavailable(monkeypatch):
     assert unavailable_response.value.status_code == 503
 
 
+def configure_bucket_security(s3):
+    s3.get_public_access_block.return_value = {
+        "PublicAccessBlockConfiguration": {
+            "BlockPublicAcls": True,
+            "IgnorePublicAcls": True,
+            "BlockPublicPolicy": True,
+            "RestrictPublicBuckets": True,
+        }
+    }
+    s3.get_bucket_encryption.return_value = {
+        "ServerSideEncryptionConfiguration": {
+            "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]
+        }
+    }
+
+
 def test_worm_verification_requires_compliance_and_versioning():
     s3 = Mock()
     s3.get_object_lock_configuration.return_value = {
@@ -59,11 +75,57 @@ def test_worm_verification_requires_compliance_and_versioning():
         }
     }
     s3.get_bucket_versioning.return_value = {"Status": "Enabled"}
+    configure_bucket_security(s3)
     assert main.verify_worm_configuration(s3, "ledger") == {
-        "mode": "COMPLIANCE", "days": 365, "years": None
+        "mode": "COMPLIANCE",
+        "days": 365,
+        "years": None,
+        "public_access_blocked": True,
+        "encryption": ["AES256"],
     }
     s3.get_bucket_versioning.return_value = {"Status": "Suspended"}
     with pytest.raises(RuntimeError, match="versioning"):
+        main.verify_worm_configuration(s3, "ledger")
+
+
+def test_worm_verification_requires_public_access_blocking():
+    s3 = Mock()
+    s3.get_object_lock_configuration.return_value = {
+        "ObjectLockConfiguration": {
+            "ObjectLockEnabled": "Enabled",
+            "Rule": {"DefaultRetention": {"Mode": "COMPLIANCE", "Days": 365}},
+        }
+    }
+    s3.get_bucket_versioning.return_value = {"Status": "Enabled"}
+    configure_bucket_security(s3)
+    s3.get_public_access_block.return_value = {
+        "PublicAccessBlockConfiguration": {
+            "BlockPublicAcls": True,
+            "IgnorePublicAcls": True,
+            "BlockPublicPolicy": False,
+            "RestrictPublicBuckets": True,
+        }
+    }
+    with pytest.raises(RuntimeError, match="Block Public Access"):
+        main.verify_worm_configuration(s3, "ledger")
+
+
+def test_worm_verification_requires_encryption():
+    s3 = Mock()
+    s3.get_object_lock_configuration.return_value = {
+        "ObjectLockConfiguration": {
+            "ObjectLockEnabled": "Enabled",
+            "Rule": {"DefaultRetention": {"Mode": "COMPLIANCE", "Days": 365}},
+        }
+    }
+    s3.get_bucket_versioning.return_value = {"Status": "Enabled"}
+    configure_bucket_security(s3)
+    s3.get_bucket_encryption.return_value = {
+        "ServerSideEncryptionConfiguration": {
+            "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "NONE"}}]
+        }
+    }
+    with pytest.raises(RuntimeError, match="server-side encryption"):
         main.verify_worm_configuration(s3, "ledger")
 
 
