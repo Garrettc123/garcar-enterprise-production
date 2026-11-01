@@ -13,7 +13,13 @@ The failed workflow runs observed on October 31, 2026 show jobs with:
 - completion approximately 2–3 seconds after job creation
 - job-log downloads returning `BlobNotFound`
 
-This means the jobs did not reach an executable runner step. It is not evidence that pytest, Ruff, CodeQL, dependency audit, or Terraform ran and failed.
+A minimal diagnostic was added with only one `ubuntu-latest` job, no checkout, no third-party actions, no dependencies, and no secrets. It failed identically on both trigger types:
+- Push run [41256370677](https://github.com/Garrettc123/garcar-enterprise-production/actions/runs/41256370677), job `124700282342`: runner ID 0, empty runner name, zero steps.
+- Pull-request run [41256373772](https://github.com/Garrettc123/garcar-enterprise-production/actions/runs/41256373772), job `124700290915`: runner ID 0, empty runner name, zero steps.
+
+This isolates the immediate failure from project dependencies and test commands: GitHub did not allocate a hosted runner even for the minimal shell-only probe. It is not evidence that pytest, Ruff, CodeQL, dependency audit, or Terraform ran and failed. The exact backend cause remains unknown.
+
+The signature is also reported by other repositories in GitHub Community discussions, including [#211408](https://github.com/orgs/community/discussions/211408) (October 27, 2026) and [#209031](https://github.com/orgs/community/discussions/209031) (September 28, 2026). Those are corroborating reports, not proof of this account's root cause. GitHub's public status page showed Actions operational and no incident on October 31, 2026; that does not establish that this repository/account can allocate runners.
 
 Operator checks:
 1. Open repository Settings → Actions → General and confirm Actions are enabled for the repository.
