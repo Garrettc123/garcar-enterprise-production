@@ -74,3 +74,15 @@ def test_runtime_role_has_least_privilege_grants(monkeypatch):
             (role, role, role, role, role),
         ).fetchone()
     assert grants == (True, True, False, False, False)
+
+    runtime_url = psycopg.conninfo.make_conninfo(DATABASE_URL, user=role, password=password)
+    with psycopg.connect(runtime_url) as runtime_conn:
+        assert runtime_conn.execute("SELECT 1 FROM enterprise_proposals LIMIT 1").fetchone() is None
+        runtime_conn.execute(
+            """INSERT INTO enterprise_audit_events(event_type,actor_id,event_data,event_hash)
+               VALUES ('CI_RUNTIME_INSERT','runtime-ci','{}',%s)""",
+            (uuid.uuid4().hex.ljust(64, "1"),),
+        )
+        with pytest.raises(psycopg.Error):
+            with runtime_conn.transaction():
+                runtime_conn.execute("CREATE TABLE runtime_must_not_create(id integer)")
