@@ -57,7 +57,7 @@ The permit intake and owner-approval routes are authenticated. Stripe webhook ro
 
 Container environment variables:
 
-- `VAULT_ADDR`, `VAULT_ROLE_ID`, `VAULT_SECRET_ID`
+- `VAULT_ADDR` (HTTPS in production), `VAULT_ROLE_ID`, `VAULT_SECRET_ID`
 - `VAULT_KV_PATH=garcar/production/keys`, `VAULT_MOUNT=secret`
 - `AWS_REGION`, `S3_LEDGER_BUCKET`
 
