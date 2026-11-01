@@ -22,7 +22,7 @@ The existing container remains compatible by default. Enable database migrations
 For a local Compose deployment, set these secrets in the deployment environment (do not commit them):
 
 - `POSTGRES_PASSWORD`
-- In the existing Vault KV v2 path `secret/garcar/production/keys`, provision `GARCAR_AGENT_API_KEYS` (comma-separated agent keys), `GARCAR_OWNER_API_KEY` (independent owner approval key), and `GARCAR_EXECUTION_SIGNING_KEY` (shared only with the trusted executor for receipt signing). The application fails production startup if any required secret is missing.
+- In the existing Vault KV v2 path `secret/garcar/production/keys`, provision `GARCAR_AGENT_API_KEYS` (comma-separated `agent_id:api_key` pairs; legacy bare keys receive a deterministic `agent_<sha256-prefix>` identity), `GARCAR_OWNER_API_KEY` (independent owner approval key), and `GARCAR_EXECUTION_SIGNING_KEY` (shared only with the trusted executor for receipt signing). The application fails production startup if any required secret is missing.
 
 Then run:
 
@@ -47,7 +47,9 @@ All routes are under `/v1`.
 
 Headers:
 
-- Agent operations: `X-Agent-API-Key`
+- Agent operations: `X-Agent-API-Key`; each configured key resolves to one stable agent ID.
+- Proposal `agent_id` must exactly match the authenticated key's agent ID.
+- Memory `namespace` must exactly match that authenticated agent ID; cross-agent namespace reads and writes are rejected.
 - Owner operations: `X-Owner-API-Key`
 - Execution verification: `X-Execution-Signature`
 
