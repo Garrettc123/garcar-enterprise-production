@@ -62,7 +62,7 @@ The runtime policy permits only:
 
 It does not grant object deletion, bucket creation, bucket-policy changes, or retention administration.
 
-The bucket must have:
+Run `python scripts/production_preflight.py` from a trusted checkout to verify Vault and S3 configuration without modifying resources or printing secret values. The bucket must have:
 - versioning enabled;
 - Object Lock enabled;
 - default COMPLIANCE retention with an owner-reviewed duration;
