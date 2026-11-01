@@ -38,6 +38,7 @@ async def record_owner_approval(
             {
                 "event_type": "OWNER_APPROVAL_RECORDED",
                 "approval": approval.model_dump(mode="json"),
+                "signature": signature,
                 "execution_state": "NOT_EXECUTED",
             },
         )
