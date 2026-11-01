@@ -22,9 +22,7 @@ The existing container remains compatible by default. Enable database migrations
 For a local Compose deployment, set these secrets in the deployment environment (do not commit them):
 
 - `POSTGRES_PASSWORD`
-- `GARCAR_AGENT_API_KEYS` — comma-separated agent keys
-- `GARCAR_OWNER_API_KEY` — independent owner approval key
-- `GARCAR_EXECUTION_SIGNING_KEY` — secret held by the trusted execution service to sign canonical receipt payloads
+- In the existing Vault KV v2 path `secret/garcar/production/keys`, provision `GARCAR_AGENT_API_KEYS` (comma-separated agent keys), `GARCAR_OWNER_API_KEY` (independent owner approval key), and `GARCAR_EXECUTION_SIGNING_KEY` (shared only with the trusted executor for receipt signing). The application fails production startup if any required secret is missing.
 
 Then run:
 
