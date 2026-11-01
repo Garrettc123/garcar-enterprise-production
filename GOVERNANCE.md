@@ -16,7 +16,8 @@
 ## Immutable chain
 - Permit, approval, and Stripe reconciliation events share one ordered S3 hash chain.
 - Each event includes a sequence number and previous-event hash; the head is advanced with an S3 conditional write.
-- If concurrent writers race, the losing immutable event is left unlinked and the request fails closed. The chain verifier reports the inconsistency; manual reconciliation is required before writes resume.
+- Idempotency reservations and completion receipts make retries safe: the same event ID and payload return the original committed hash; changed payloads are rejected. A reservation without a completion receipt is an incomplete write and fails closed.
+- If concurrent writers race, the losing immutable event is left unlinked and the request fails closed. The chain verifier checks the head-linked sequence plus every reservation and receipt; manual reconciliation is required before writes resume.
 - Use `scripts/verify_chain.py` to verify the complete sequence, hashes, head pointer, and retention metadata.
 
 ## Stripe
