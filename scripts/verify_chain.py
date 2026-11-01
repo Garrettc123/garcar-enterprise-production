@@ -50,7 +50,12 @@ def _event_id_from_key(key: str, prefix: str) -> str | None:
     filename = key.rsplit("/", 1)[-1]
     if not filename.endswith(".json"):
         return None
-    return filename[:-5]
+    stem = filename[:-5]
+    if prefix == "evidence/chain/events/":
+        if len(stem) < 22 or not stem[:20].isdigit() or stem[20] != "-":
+            return None
+        return stem[21:]
+    return stem
 
 
 def verify(bucket: str, region: str) -> tuple[bool, str]:
