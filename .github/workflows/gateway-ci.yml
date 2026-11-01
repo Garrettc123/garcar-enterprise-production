@@ -5,13 +5,19 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'tests/**'
+      - 'init_db.py'
       - 'requirements.txt'
+      - '.github/workflows/**'
       - 'Dockerfile'
   push:
     branches: [main]
     paths:
       - 'src/**'
+      - 'tests/**'
+      - 'init_db.py'
       - 'requirements.txt'
+      - '.github/workflows/**'
       - 'Dockerfile'
 
 permissions:
