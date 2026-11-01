@@ -1,5 +1,8 @@
-import base64
 """Behavioral tests for fail-closed policy and evidence integrity."""
+import base64
+import hashlib
+import io
+import json
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -199,8 +202,19 @@ def test_review_is_never_auto_approved_or_sent():
     assert result["past_projects_count"] is None
 
 
-def test_duplicate_s3_event_is_rejected(monkeypatch):
+def test_duplicate_s3_event_returns_original_ledger_hash(monkeypatch):
     payload = sample_payload()
+    record = {
+        "schema_version": 1,
+        "event_id": str(payload.event_id),
+        "event_type": "PERMIT_INGESTED",
+        "permit": payload.model_dump(mode="json"),
+    }
+    canonical = json.dumps(
+        record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    request_hash = hashlib.sha256(canonical).hexdigest()
+
     s3 = Mock()
     s3.get_object_lock_configuration.return_value = {
         "ObjectLockConfiguration": {
@@ -209,14 +223,39 @@ def test_duplicate_s3_event_is_rejected(monkeypatch):
         }
     }
     s3.get_bucket_versioning.return_value = {"Status": "Enabled"}
+    configure_bucket_security(s3)
     s3.put_object.side_effect = ClientError(
         {"Error": {"Code": "PreconditionFailed"}},
         "PutObject",
     )
+    s3.get_object.side_effect = [
+        {
+            "Body": io.BytesIO(json.dumps({
+                "event_id": str(payload.event_id),
+                "payload_sha256": request_hash,
+                "state": "RESERVED",
+            }).encode("utf-8")),
+            "ObjectLockMode": "COMPLIANCE",
+            "ObjectLockRetainUntilDate": "2027-10-30T00:00:00Z",
+        },
+        {
+            "Body": io.BytesIO(json.dumps({
+                "event_id": str(payload.event_id),
+                "payload_sha256": request_hash,
+                "event_hash": "b" * 64,
+                "sequence": 4,
+                "state": "COMMITTED",
+            }).encode("utf-8")),
+            "ObjectLockMode": "COMPLIANCE",
+            "ObjectLockRetainUntilDate": "2027-10-30T00:00:00Z",
+        },
+    ]
     monkeypatch.setattr(main, "_s3_client", lambda: s3)
-    with pytest.raises(HTTPException) as duplicate:
-        main.seal_event(payload, {"S3_LEDGER_BUCKET": "ledger"})
-    assert duplicate.value.status_code == 409
+
+    digest = main.seal_event(payload, {"S3_LEDGER_BUCKET": "ledger"})
+
+    assert digest == "b" * 64
+    assert s3.get_object.call_count == 2
 
 
 def test_payload_rejects_unexpected_fields():
