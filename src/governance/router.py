@@ -271,6 +271,8 @@ def verify_execution(payload: VerificationRequest, actor: str = Depends(require_
                 proposal = cur.fetchone()
                 if not proposal or proposal["status"] != "APPROVED":
                     raise HTTPException(status_code=409, detail="Proposal is not in an executable approved state")
+                if not hmac.compare_digest(proposal["agent_id"], actor):
+                    raise HTTPException(status_code=403, detail="Only the proposing agent may submit the execution receipt")
                 if not hmac.compare_digest(proposal["authorization_token_hash"] or "", token_hash):
                     raise HTTPException(status_code=403, detail="Invalid authorization token")
                 if proposal["authorization_consumed_at"] is not None:
