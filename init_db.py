@@ -39,9 +39,9 @@ def _provision_runtime_role(cur: psycopg.Cursor) -> None:
         raise RuntimeError("Runtime DB role must not inherit privileges from other PostgreSQL roles")
 
     statement = (
-        "ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD {}"
+        "ALTER ROLE {} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD {}"
         if role_exists
-        else "CREATE ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD {}"
+        else "CREATE ROLE {} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD {}"
     )
     cur.execute(sql.SQL(statement).format(sql.Identifier(role), sql.Literal(password)))
     cur.execute("SELECT current_database()")
@@ -50,6 +50,16 @@ def _provision_runtime_role(cur: psycopg.Cursor) -> None:
         sql.Identifier(database_name), sql.Identifier(role)
     ))
     cur.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(role)))
+
+    # Remove stale or overly broad grants on an existing runtime role before applying
+    # the exact allow-list. Do not grant default privileges on future tables.
+    cur.execute(sql.SQL("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {}").format(
+        sql.Identifier(role)
+    ))
+    cur.execute(sql.SQL("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {}").format(
+        sql.Identifier(role)
+    ))
+    cur.execute(sql.SQL("REVOKE CREATE ON SCHEMA public FROM {}").format(sql.Identifier(role)))
 
     grants = {
         "enterprise_proposals": "SELECT, INSERT, UPDATE",
@@ -63,27 +73,16 @@ def _provision_runtime_role(cur: psycopg.Cursor) -> None:
         cur.execute(sql.SQL("GRANT " + privileges + " ON TABLE {} TO {}").format(
             sql.Identifier(table), sql.Identifier(role)
         ))
-    cur.execute(sql.SQL("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {}").format(
-        sql.Identifier(role)
-    ))
 
-    # Preserve the same restrictions for objects created by future migrations.
-    owner = cur.execute("SELECT current_user").fetchone()[0]
-    defaults = {
-        "enterprise_proposals": "SELECT, INSERT, UPDATE",
-        "enterprise_approvals": "SELECT, INSERT",
-        "enterprise_execution_events": "SELECT, INSERT",
-        "enterprise_audit_events": "SELECT, INSERT",
-        "enterprise_vector_memory": "SELECT, INSERT",
-        "enterprise_control_state": "SELECT, INSERT, UPDATE",
-    }
-    for table, privileges in defaults.items():
-        cur.execute(sql.SQL("ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA public GRANT " + privileges + " ON TABLES TO {}").format(
-            sql.Identifier(owner), sql.Identifier(role)
+    for sequence in (
+        "enterprise_approvals_approval_id_seq",
+        "enterprise_execution_events_event_id_seq",
+        "enterprise_audit_events_event_id_seq",
+        "enterprise_vector_memory_id_seq",
+    ):
+        cur.execute(sql.SQL("GRANT USAGE, SELECT ON SEQUENCE {} TO {}").format(
+            sql.Identifier(sequence), sql.Identifier(role)
         ))
-    cur.execute(sql.SQL("ALTER DEFAULT PRIVILEGES FOR ROLE {} IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {}").format(
-        sql.Identifier(owner), sql.Identifier(role)
-    ))
     log.info("Provisioned least-privilege runtime database role %s", role)
 
 
