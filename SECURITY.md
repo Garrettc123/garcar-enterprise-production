@@ -25,7 +25,7 @@ Before accepting traffic, readiness verifies S3 Object Lock, bucket versioning, 
 
 ## Runtime AWS permissions
 
-Attach the managed policy created by `terraform/iam.tf` to the dedicated workload role used by the service. It grants only bucket-configuration reads, event-prefix listing, object reads/version reads/retention inspection, and object writes under `evidence/*`. It grants no object deletion, bucket creation, bucket-policy changes, retention configuration changes, or retention shortening. The caller must have `s3:GetObjectRetention` to inspect Object Lock metadata returned by object reads/HEAD requests. AWS documents that retention metadata is returned only when the requester has that permission.
+Attach the managed policy created by `terraform/iam.tf` to the dedicated workload role used by the service. It grants only bucket-configuration reads, event, reservation, and receipt prefix listing, object reads/version reads/retention inspection, and object writes under `evidence/*`. It grants no object deletion, bucket creation, bucket-policy changes, retention configuration changes, or retention shortening. The caller must have `s3:GetObjectRetention` to inspect Object Lock metadata returned by object reads/HEAD requests. AWS documents that retention metadata is returned only when the requester has that permission.
 
 S3 Object Lock COMPLIANCE retention is legally and operationally consequential. Terraform
 bucket creation is disabled by default. Supply a retention period and explicitly enable
