@@ -9,6 +9,7 @@ import base64
 import hmac
 import os
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import UUID
 
 import boto3
@@ -60,6 +61,15 @@ class PermitPayload(BaseModel):
 def _vault_client() -> hvac.Client:
     if not VAULT_ADDR or not VAULT_ROLE_ID or not VAULT_SECRET_ID:
         raise RuntimeError("Vault AppRole configuration is required; refusing fallback credentials")
+    parsed_vault_url = urlsplit(VAULT_ADDR)
+    local_http_allowed = (
+        APP_ENV.lower() in {"local", "development", "test"}
+        and parsed_vault_url.hostname in {"localhost", "127.0.0.1", "::1", "vault"}
+    )
+    if parsed_vault_url.scheme != "https" and not local_http_allowed:
+        raise RuntimeError("Vault must use HTTPS outside local development and test")
+    if not parsed_vault_url.hostname:
+        raise RuntimeError("VAULT_ADDR must contain a valid hostname")
     client = hvac.Client(url=VAULT_ADDR, timeout=5)
     auth = client.auth.approle.login(role_id=VAULT_ROLE_ID, secret_id=VAULT_SECRET_ID)
     if not auth or not client.is_authenticated():
