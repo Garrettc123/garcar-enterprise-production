@@ -10,9 +10,13 @@ or deploy cloud infrastructure.
 - Vault KV v2 path: secret/data/garcar/production/keys (mount/path configurable).
 - Vault public approval key: OWNER_APPROVAL_PUBLIC_KEY (private signing key stays offline).
 - Vault Stripe webhook secret: STRIPE_WEBHOOK_SECRET.
-- API bearer token: API_BEARER_TOKEN stored in Vault KV; not injected through container environment.
+- API bearer token: API_BEARER_TOKEN stored in Vault KV; at least 32 characters. Generate locally with `python scripts/generate_api_token.py`.
+- Owner public key: base64-encoded raw Ed25519 key, exactly 32 decoded bytes. Generate locally with `python scripts/generate_owner_keypair.py`; keep the private key offline.
+- Stripe webhook secret: Stripe signing secret beginning with `whsec_`.
 - AWS SDK workload identity: task role, instance role, or OIDC federation.
 - S3 bucket: S3_LEDGER_BUCKET.
+
+The service validates the required secret formats before accepting requests or reporting readiness. No secret values are written to logs.
 
 No static AWS keys, Vault root token, fake provider credentials, or secret fallbacks are included.
 
