@@ -277,6 +277,12 @@ def search_memory(payload: VectorQueryRequest, _: str = Depends(require_agent)) 
     return {"matches":rows}
 
 
+@router.get("/governance/execution-allowed")
+def execution_allowed(_: str = Depends(require_agent)) -> dict[str, bool]:
+    """Read the persistent stop state before an executor performs side effects."""
+    return {"execution_allowed": not execution_is_blocked()}
+
+
 @router.post("/governance/kill-switch")
 def set_kill_switch(enabled: bool, owner: str = Depends(require_owner)) -> dict[str, Any]:
     with db_connection() as conn:
