@@ -44,7 +44,8 @@ The permit intake and owner-approval routes are authenticated. Stripe webhook ro
 
 - Vault AppRole authentication; API bearer token, Stripe webhook secret, and owner public key are loaded from Vault KV v2. Missing Vault configuration fails closed.
 - AWS SDK default credential chain for workload identity; no static AWS keys or development credential fallbacks.
-- Private S3 bucket configuration with versioning, public-access blocking, server-side encryption, and Object Lock COMPLIANCE retention. Terraform bucket creation is disabled by default and protected from destruction.
+- Private S3 bucket configuration with versioning, all four public-access blocks, server-side encryption, and Object Lock COMPLIANCE retention. Readiness checks verify each of these controls. Terraform bucket creation is disabled by default and protected from destruction.
+- Least-privilege runtime IAM managed policy in `terraform/iam.tf`; it permits only evidence-prefix listing, object read/version/retention inspection, object writes, and required bucket-configuration reads. It grants no delete or bucket/retention administration.
 - Append-only SHA-256 event chain for permit intake, signed owner approvals, and Stripe event evidence.
 - Ed25519 approval signatures scoped to a permit, validity window, evidence references, and limited review/export actions. The application never receives the private signing key.
 - Deterministic evidence-first RHNS policy. Missing source records, identity, authority, budget, or approval keep permits in human review.
@@ -67,7 +68,7 @@ Vault KV v2 must contain:
 - `STRIPE_WEBHOOK_SECRET`
 - `S3_LEDGER_BUCKET`
 
-The runtime AWS identity must be narrowly scoped to the existing ledger bucket. Do not put credentials in source control, README files, PR comments, or chat.
+The runtime AWS identity must use the managed policy in `terraform/iam.tf`, attached to a dedicated workload role whose trust relationship is configured by the chosen hosting platform. This policy includes `s3:GetObjectRetention`, required to inspect Object Lock retention metadata returned by object requests. Do not put credentials in source control, README files, PR comments, or chat.
 
 ## Local container
 
@@ -77,7 +78,7 @@ Configure Vault AppRole values and non-secret settings in your deployment secret
 docker compose up --build
 ```
 
-The container listens on `PORT` (default 8000). `/live` reports process liveness. `/health` reports readiness only when Vault and the S3 Object Lock configuration are reachable and verified.
+The container listens on `PORT` (default 8000). `/live` reports process liveness. `/health` reports readiness only when Vault is reachable and S3 Object Lock, versioning, default COMPLIANCE retention, all four public-access blocks, and server-side encryption are verified.
 
 ## Verification commands
 
