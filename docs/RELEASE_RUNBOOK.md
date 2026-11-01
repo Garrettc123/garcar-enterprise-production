@@ -64,7 +64,7 @@ Attach the policy created by `terraform/iam.tf` to a dedicated workload role. Co
 
 The runtime policy permits only:
 - reads of bucket location, versioning, Object Lock, encryption, and public-access-block configuration;
-- listing the ledger event prefix;
+- listing the event, reservation, and receipt prefixes;
 - reading objects and versions, inspecting object retention, and writing under `evidence/*`.
 
 It does not grant object deletion, bucket creation, bucket-policy changes, or retention administration.
