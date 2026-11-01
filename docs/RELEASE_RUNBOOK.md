@@ -46,7 +46,7 @@ Review the actual logs, not only the top-level check labels. Keep the PR in draf
 ## 4. Vault setup
 
 Configure these platform variables only through the approved hosting secret manager:
-- `VAULT_ADDR`
+- `VAULT_ADDR` (HTTPS endpoint)
 - `VAULT_ROLE_ID`
 - `VAULT_SECRET_ID`
 
