@@ -1,0 +1,34 @@
+# Use with: docker compose -f docker-compose.yml -f docker-compose.governance.yml up --build
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-garcar}
+      POSTGRES_USER: ${POSTGRES_USER:-garcar_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the deployment environment}
+    volumes:
+      - garcar-governance-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garcar_app} -d ${POSTGRES_DB:-garcar}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  garcar-gateway:
+    environment:
+      ENABLE_GOVERNANCE_DB: "true"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-garcar_app}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-garcar}
+      DB_CONNECT_RETRIES: "20"
+      DB_CONNECT_RETRY_DELAY_SECONDS: "3"
+      GARCAR_AGENT_API_KEYS: ${GARCAR_AGENT_API_KEYS:?set GARCAR_AGENT_API_KEYS}
+      GARCAR_OWNER_API_KEY: ${GARCAR_OWNER_API_KEY:?set GARCAR_OWNER_API_KEY}
+      GARCAR_EXECUTION_SIGNING_KEY: ${GARCAR_EXECUTION_SIGNING_KEY:?set GARCAR_EXECUTION_SIGNING_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  garcar-governance-postgres:
