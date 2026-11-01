@@ -74,9 +74,9 @@ Run `python scripts/production_preflight.py` from a trusted checkout to verify V
 - Object Lock enabled;
 - default COMPLIANCE retention with an owner-reviewed duration;
 - all four S3 Block Public Access settings enabled;
-- default AES256 or AWS KMS server-side encryption.
+- default AES256 server-side encryption.
 
-The runtime identity needs `s3:GetObjectRetention` to read the object-retention metadata used by the verifier. If using AWS KMS instead of AES256, configure the corresponding narrowly scoped KMS permissions and update the deployment review before use.
+The runtime identity needs `s3:GetObjectRetention` to read the object-retention metadata used by the verifier. AWS KMS encryption is not enabled in this v1 runtime policy. Add and review narrowly scoped KMS data-key permissions before changing the bucket encryption mode.
 
 Do not set `enable_bucket_creation=true` until the exact AWS account, bucket name, region, retention duration, cost, and legal hold requirements are approved. COMPLIANCE retention cannot be shortened for objects while they remain retained.
 
