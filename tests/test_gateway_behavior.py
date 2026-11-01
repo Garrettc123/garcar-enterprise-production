@@ -1,3 +1,4 @@
+import base64
 """Behavioral tests for fail-closed policy and evidence integrity."""
 from unittest.mock import Mock
 from uuid import uuid4
@@ -28,6 +29,56 @@ def test_vault_missing_configuration_fails_closed(monkeypatch):
     monkeypatch.setattr(main, "VAULT_SECRET_ID", None)
     with pytest.raises(RuntimeError, match="refusing fallback"):
         main._vault_client()
+
+
+def valid_runtime_values():
+    return {
+        "S3_LEDGER_BUCKET": "garcar-ledger-test",
+        "OWNER_APPROVAL_PUBLIC_KEY": base64.b64encode(bytes(range(32))).decode("ascii"),
+        "STRIPE_WEBHOOK_SECRET": "whsec_" + "s" * 32,
+        "API_BEARER_TOKEN": "t" * 48,
+    }
+
+
+def test_runtime_config_accepts_valid_secrets_without_mutating_them():
+    values = valid_runtime_values()
+    validated = main.validate_runtime_config(values)
+    assert validated == values
+
+
+def test_runtime_config_requires_every_secret_and_bucket():
+    values = valid_runtime_values()
+    del values["STRIPE_WEBHOOK_SECRET"]
+    with pytest.raises(RuntimeError, match="STRIPE_WEBHOOK_SECRET"):
+        main.validate_runtime_config(values)
+
+
+def test_runtime_config_rejects_short_api_token():
+    values = valid_runtime_values()
+    values["API_BEARER_TOKEN"] = "short"
+    with pytest.raises(RuntimeError, match="at least 32 characters"):
+        main.validate_runtime_config(values)
+
+
+def test_runtime_config_rejects_invalid_owner_public_key():
+    values = valid_runtime_values()
+    values["OWNER_APPROVAL_PUBLIC_KEY"] = "not-base64"
+    with pytest.raises(RuntimeError, match="base64-encoded"):
+        main.validate_runtime_config(values)
+
+
+def test_runtime_config_rejects_wrong_owner_public_key_size():
+    values = valid_runtime_values()
+    values["OWNER_APPROVAL_PUBLIC_KEY"] = base64.b64encode(b"short").decode("ascii")
+    with pytest.raises(RuntimeError, match="exactly 32 bytes"):
+        main.validate_runtime_config(values)
+
+
+def test_runtime_config_rejects_invalid_stripe_webhook_secret():
+    values = valid_runtime_values()
+    values["STRIPE_WEBHOOK_SECRET"] = "wrong-format"
+    with pytest.raises(RuntimeError, match="invalid format"):
+        main.validate_runtime_config(values)
 
 
 def test_authentication_rejects_missing_or_wrong_token(monkeypatch):
