@@ -24,10 +24,11 @@ The signature is also reported by other repositories in GitHub Community discuss
 Operator checks:
 1. Open repository Settings → Actions → General and confirm Actions are enabled for the repository.
 2. Confirm the repository is allowed to use GitHub-hosted runners and the required standard runner image (`ubuntu-latest`).
-3. Check account/organization Actions policy and billing/budget restrictions. Do not assume any one of these is the cause without the setting or GitHub error proving it.
-4. Confirm workflow files are enabled and that the PR branch is not excluded by Actions policy.
-5. Re-run the failed workflows only after runner allocation is restored.
-6. Verify that each job has a nonzero runner ID, a runner name, executed steps, and downloadable logs.
+3. Check account/repository Actions policy and whether GitHub-hosted standard runners are permitted for this repository. Do not assume an account restriction without the setting or GitHub error proving it.
+4. This repository is public and the probe uses standard `ubuntu-latest`; GitHub documents standard hosted runners as free and unlimited for public repositories. Monthly included-minute exhaustion is therefore not the likely explanation for these jobs. Billing becomes relevant only if the repository visibility or runner class changes (for example, a paid larger runner).
+5. Confirm workflow files are enabled and that the PR branch is not excluded by Actions policy.
+6. Re-run the failed workflows only after runner allocation is restored.
+7. Verify that each job has a nonzero runner ID, a runner name, executed steps, and downloadable logs.
 
 Current public GitHub status should be checked separately; a green status page does not prove that this repository/account can allocate its own jobs. Do not attribute a repository-specific runner failure to a platform incident without a matching incident window.
 
