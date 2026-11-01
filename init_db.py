@@ -27,7 +27,22 @@ def _provision_runtime_role(cur: psycopg.Cursor) -> None:
 
     cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
     role_exists = cur.fetchone() is not None
-    statement = "ALTER ROLE {} LOGIN PASSWORD {}" if role_exists else "CREATE ROLE {} LOGIN PASSWORD {}"
+    cur.execute(
+        "SELECT parent.rolname FROM pg_auth_members m "
+        "JOIN pg_roles parent ON parent.oid = m.roleid "
+        "JOIN pg_roles member ON member.oid = m.member "
+        "WHERE member.rolname = %s",
+        (role,),
+    )
+    memberships = cur.fetchall()
+    if memberships:
+        raise RuntimeError("Runtime DB role must not inherit privileges from other PostgreSQL roles")
+
+    statement = (
+        "ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD {}"
+        if role_exists
+        else "CREATE ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD {}"
+    )
     cur.execute(sql.SQL(statement).format(sql.Identifier(role), sql.Literal(password)))
     cur.execute("SELECT current_database()")
     database_name = cur.fetchone()[0]
