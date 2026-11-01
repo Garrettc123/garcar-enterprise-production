@@ -64,7 +64,10 @@ async def lifespan(app: FastAPI):
     vault_data = {}
 
 app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.3.0", lifespan=lifespan)
-app.include_router(governance_router)
+
+# Governance endpoints are opt-in; do not expose them when the database migration gate is disabled.
+if os.getenv("ENABLE_GOVERNANCE_DB", "false").lower() == "true":
+    app.include_router(governance_router)
 
 @app.get("/health")
 async def health():
