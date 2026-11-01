@@ -46,12 +46,12 @@ The permit intake and owner-approval routes are authenticated. Stripe webhook ro
 - AWS SDK default credential chain for workload identity; no static AWS keys or development credential fallbacks.
 - Private S3 bucket configuration with versioning, all four public-access blocks, server-side encryption, and Object Lock COMPLIANCE retention. Readiness checks verify each of these controls. Terraform bucket creation is disabled by default and protected from destruction.
 - Least-privilege runtime IAM managed policy in `terraform/iam.tf`; it permits only evidence-prefix listing, object read/version/retention inspection, object writes, and required bucket-configuration reads. It grants no delete or bucket/retention administration.
-- Append-only SHA-256 event chain for permit intake, signed owner approvals, and Stripe event evidence.
+- Append-only SHA-256 event chain for permit intake, signed owner approvals, and Stripe event evidence. Immutable idempotency reservations and completion receipts allow identical retries to reuse the original hash while rejecting changed payloads.
 - Ed25519 approval signatures scoped to a permit, validity window, evidence references, and limited review/export actions. The application never receives the private signing key.
 - Deterministic evidence-first RHNS policy. Missing source records, identity, authority, budget, or approval keep permits in human review.
 - Stripe webhook signature verification. Verified `payout.paid` events retain payout ID, amount in integer minor units, currency, event ID, and status. This records a Stripe event only; it does not initiate a payout or independently establish that funds reached a bank.
 - Docker runs as a non-root user, uses a read-only root filesystem in Compose, has dropped Linux capabilities, uses a separate liveness endpoint, and runs one application worker.
-- A ledger verifier follows the event hash referenced by the chain head and flags unlinked immutable event objects for manual reconciliation.
+- A ledger verifier follows the event hash referenced by the chain head, checks every reservation and completion receipt, and flags unlinked or incomplete immutable writes for manual reconciliation.
 
 ## Runtime configuration
 
