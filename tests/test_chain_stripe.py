@@ -1,4 +1,7 @@
 """Tests for append-only ledger sequencing and Stripe webhook policy."""
+import hashlib
+import io
+import json
 from unittest.mock import Mock
 
 import pytest
@@ -19,33 +22,117 @@ def client_error(code, operation):
     return ClientError({"Error": {"Code": code}}, operation)
 
 
-def test_chain_append_creates_event_and_advances_head():
+def locked_json(value):
+    return {
+        "Body": io.BytesIO(json.dumps(value).encode("utf-8")),
+        "ObjectLockMode": "COMPLIANCE",
+        "ObjectLockRetainUntilDate": "2027-10-30T00:00:00Z",
+    }
+
+
+def payload_hash(record):
+    canonical = json.dumps(
+        record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def test_chain_append_creates_event_head_and_completion_receipt():
     s3 = Mock()
     s3.get_object.side_effect = client_error("NoSuchKey", "GetObject")
     s3.put_object.side_effect = [
         {"VersionId": "reservation-v1"},
         {"VersionId": "event-v1"},
         {"VersionId": "head-v1"},
+        {"VersionId": "receipt-v1"},
     ]
     s3.head_object.return_value = {
         "ObjectLockMode": "COMPLIANCE",
         "ObjectLockRetainUntilDate": "2027-10-30T00:00:00Z",
     }
+
     digest = append_event(s3, "ledger", "evt-123", {"event_type": "TEST"}, locked_bucket)
+
     assert len(digest) == 64
-    assert s3.put_object.call_count == 3
+    assert s3.put_object.call_count == 4
+    reservation_write = s3.put_object.call_args_list[0].kwargs
+    assert "evidence/chain/idempotency/evt-123.json" == reservation_write["Key"]
+    reservation_doc = json.loads(reservation_write["Body"])
+    assert reservation_doc["payload_sha256"] == payload_hash({"event_type": "TEST"})
+
     event_write = s3.put_object.call_args_list[1].kwargs
     assert "00000000000000000001-evt-123.json" in event_write["Key"]
     head_write = s3.put_object.call_args_list[2].kwargs
     assert head_write["IfNoneMatch"] == "*"
 
+    receipt_write = s3.put_object.call_args_list[3].kwargs
+    assert receipt_write["Key"] == "evidence/chain/receipts/evt-123.json"
+    receipt_doc = json.loads(receipt_write["Body"])
+    assert receipt_doc["event_hash"] == digest
+    assert receipt_doc["state"] == "COMMITTED"
 
-def test_duplicate_chain_event_id_is_rejected():
+
+def test_duplicate_completed_event_returns_original_hash():
+    record = {"event_type": "TEST", "value": 10}
+    request_hash = payload_hash(record)
     s3 = Mock()
     s3.put_object.side_effect = client_error("PreconditionFailed", "PutObject")
+    s3.get_object.side_effect = [
+        locked_json({
+            "event_id": "evt-123",
+            "payload_sha256": request_hash,
+            "state": "RESERVED",
+        }),
+        locked_json({
+            "event_id": "evt-123",
+            "payload_sha256": request_hash,
+            "event_hash": "a" * 64,
+            "sequence": 7,
+            "state": "COMMITTED",
+        }),
+    ]
+
+    digest = append_event(s3, "ledger", "evt-123", record, locked_bucket)
+
+    assert digest == "a" * 64
+    assert s3.get_object.call_count == 2
+
+
+def test_duplicate_event_id_with_changed_payload_is_rejected():
+    original_hash = payload_hash({"event_type": "TEST", "value": 10})
+    s3 = Mock()
+    s3.put_object.side_effect = client_error("PreconditionFailed", "PutObject")
+    s3.get_object.return_value = locked_json({
+        "event_id": "evt-123",
+        "payload_sha256": original_hash,
+        "state": "RESERVED",
+    })
+
     with pytest.raises(HTTPException) as duplicate:
-        append_event(s3, "ledger", "evt-123", {"event_type": "TEST"}, locked_bucket)
+        append_event(
+            s3, "ledger", "evt-123",
+            {"event_type": "TEST", "value": 11},
+            locked_bucket,
+        )
     assert duplicate.value.status_code == 409
+
+
+def test_incomplete_reservation_fails_closed_for_reconciliation():
+    record = {"event_type": "TEST"}
+    request_hash = payload_hash(record)
+    s3 = Mock()
+    s3.put_object.side_effect = client_error("PreconditionFailed", "PutObject")
+    s3.get_object.side_effect = [
+        locked_json({
+            "event_id": "evt-123",
+            "payload_sha256": request_hash,
+            "state": "RESERVED",
+        }),
+        client_error("NoSuchKey", "GetObject"),
+    ]
+
+    with pytest.raises(RuntimeError, match="manual reconciliation"):
+        append_event(s3, "ledger", "evt-123", record, locked_bucket)
 
 
 def test_chain_head_race_fails_closed():
