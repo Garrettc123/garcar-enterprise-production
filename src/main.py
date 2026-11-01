@@ -60,8 +60,11 @@ async def lifespan(app: FastAPI):
             raise RuntimeError("Vault cannot be disabled in production")
         vault_data = {}
         configure_runtime_secrets({})
-    yield
-    vault_data = {}
+    try:
+        yield
+    finally:
+        vault_data = {}
+        configure_runtime_secrets({})
 
 app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.3.0", lifespan=lifespan)
 
