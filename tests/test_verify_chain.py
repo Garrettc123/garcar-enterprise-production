@@ -144,7 +144,7 @@ def test_verifies_committed_chain_receipts_and_retention(monkeypatch):
 
 
 def test_unlinked_concurrent_write_is_flagged_as_orphan(monkeypatch):
-    orphan_key, orphan_hash, orphan, orphan_payload = make_event(
+    orphan_key, _orphan_hash, orphan, orphan_payload = make_event(
         "evt-loser", 1, verify_chain.ZERO_HASH
     )
     winner_key, winner_hash, winner, winner_payload = make_event(
