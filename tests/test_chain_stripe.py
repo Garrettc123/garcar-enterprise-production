@@ -75,6 +75,12 @@ def test_chain_append_creates_event_head_and_completion_receipt():
 def test_duplicate_completed_event_returns_original_hash():
     record = {"event_type": "TEST", "value": 10}
     request_hash = payload_hash(record)
+    chained_record = {
+        **record,
+        "chain": {"sequence": 7, "previous_hash": "b" * 64},
+    }
+    event_hash = payload_hash(chained_record)
+    stored_event = {**chained_record, "sha256": event_hash}
     s3 = Mock()
     s3.put_object.side_effect = client_error("PreconditionFailed", "PutObject")
     s3.get_object.side_effect = [
@@ -86,16 +92,18 @@ def test_duplicate_completed_event_returns_original_hash():
         locked_json({
             "event_id": "evt-123",
             "payload_sha256": request_hash,
-            "event_hash": "a" * 64,
+            "event_hash": event_hash,
             "sequence": 7,
             "state": "COMMITTED",
         }),
+        locked_json(stored_event),
+        locked_json({"sequence": 8, "event_hash": "c" * 64}),
     ]
 
     digest = append_event(s3, "ledger", "evt-123", record, locked_bucket)
 
-    assert digest == "a" * 64
-    assert s3.get_object.call_count == 2
+    assert digest == event_hash
+    assert s3.get_object.call_count == 4
 
 
 def test_duplicate_event_id_with_changed_payload_is_rejected():
