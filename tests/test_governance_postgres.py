@@ -53,3 +53,24 @@ def test_audit_events_reject_update_and_delete():
         with pytest.raises(psycopg.Error, match="append-only"):
             with conn.transaction():
                 conn.execute("DELETE FROM enterprise_audit_events WHERE event_id=%s", (event_id,))
+
+def test_runtime_role_has_least_privilege_grants(monkeypatch):
+    role = "garcar_runtime_ci"
+    password = "ci-runtime-password-" + uuid.uuid4().hex
+    monkeypatch.setenv("GARCAR_RUNTIME_DB_USER", role)
+    monkeypatch.setenv("GARCAR_RUNTIME_DB_PASSWORD", password)
+    run_migrations()
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        grants = conn.execute(
+            """
+            SELECT
+              has_table_privilege(%s, 'enterprise_proposals', 'UPDATE'),
+              has_table_privilege(%s, 'enterprise_audit_events', 'INSERT'),
+              has_table_privilege(%s, 'enterprise_audit_events', 'UPDATE'),
+              has_table_privilege(%s, 'enterprise_audit_events', 'DELETE'),
+              has_schema_privilege(%s, 'public', 'CREATE')
+            """,
+            (role, role, role, role, role),
+        ).fetchone()
+    assert grants == (True, True, False, False, False)
