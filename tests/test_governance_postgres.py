@@ -69,11 +69,14 @@ def test_runtime_role_has_least_privilege_grants(monkeypatch):
               has_table_privilege(%s, 'enterprise_audit_events', 'INSERT'),
               has_table_privilege(%s, 'enterprise_audit_events', 'UPDATE'),
               has_table_privilege(%s, 'enterprise_audit_events', 'DELETE'),
-              has_schema_privilege(%s, 'public', 'CREATE')
+              has_schema_privilege(%s, 'public', 'CREATE'),
+              r.rolsuper, r.rolcreatedb, r.rolcreaterole, r.rolreplication,
+              r.rolbypassrls, r.rolinherit
+            FROM pg_roles r WHERE r.rolname = %s
             """,
-            (role, role, role, role, role),
+            (role, role, role, role, role, role),
         ).fetchone()
-    assert grants == (True, True, False, False, False)
+    assert grants == (True, True, False, False, False, False, False, False, False, False, False)
 
     runtime_url = psycopg.conninfo.make_conninfo(DATABASE_URL, user=role, password=password)
     with psycopg.connect(runtime_url) as runtime_conn:
