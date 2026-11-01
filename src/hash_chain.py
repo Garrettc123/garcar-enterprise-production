@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any, Callable
 
 from botocore.exceptions import ClientError
@@ -152,6 +153,12 @@ def append_event(
     record: dict[str, Any],
     verify_bucket: Callable[[Any, str], Any],
 ) -> str:
+    if (
+        not isinstance(event_id, str)
+        or not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", event_id)
+    ):
+        raise ValueError("event_id must be 1–128 safe identifier characters")
+
     verify_bucket(s3, bucket)
     payload_hash = hashlib.sha256(_canonical_json(record)).hexdigest()
 
