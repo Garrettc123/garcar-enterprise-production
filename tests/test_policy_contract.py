@@ -6,6 +6,7 @@ COMPOSE = Path("docker-compose.yml").read_text()
 TERRAFORM = Path("terraform/main.tf").read_text()
 POLICY = Path("src/rhns_policy.py").read_text()
 IAM_POLICY = Path("terraform/iam.tf").read_text()
+APPROVAL_ROUTES = Path("src/extended_routes.py").read_text()
 
 
 def test_no_fake_credentials_or_dev_root_token():
@@ -59,3 +60,9 @@ def test_runtime_iam_is_read_append_only_and_prefix_scoped():
 def test_kms_encryption_is_not_claimed_as_ready_without_kms_policy():
     assert 'value != "AES256"' in SOURCE
     assert "KMS requires a separately reviewed runtime policy" in SOURCE
+
+
+
+def test_verified_owner_signature_is_retained_in_audit_record():
+    assert '"signature": signature' in APPROVAL_ROUTES
+    assert '"execution_state": "NOT_EXECUTED"' in APPROVAL_ROUTES
