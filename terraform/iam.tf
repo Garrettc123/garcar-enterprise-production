@@ -19,7 +19,11 @@ data "aws_iam_policy_document" "ledger_runtime" {
     condition {
       test     = "StringLike"
       variable = "s3:prefix"
-      values   = ["evidence/chain/events/*"]
+      values = [
+        "evidence/chain/events/*",
+        "evidence/chain/idempotency/*",
+        "evidence/chain/receipts/*",
+      ]
     }
   }
 
