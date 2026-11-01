@@ -1,16 +1,17 @@
 # Use with: docker compose -f docker-compose.yml -f docker-compose.governance.yml up --build
+# POSTGRES_PASSWORD is the migration/admin credential; GARCAR_RUNTIME_DB_PASSWORD is a separate app credential.
 services:
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-garcar}
-      POSTGRES_USER: ${POSTGRES_USER:-garcar_app}
+      POSTGRES_USER: ${POSTGRES_USER:-garcar_migrator}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the deployment environment}
     volumes:
       - garcar-governance-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garcar_app} -d ${POSTGRES_DB:-garcar}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garcar_migrator} -d ${POSTGRES_DB:-garcar}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -20,7 +21,10 @@ services:
   garcar-gateway:
     environment:
       ENABLE_GOVERNANCE_DB: "true"
-      DATABASE_URL: postgresql://${POSTGRES_USER:-garcar_app}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-garcar}
+      DATABASE_URL: postgresql://${GARCAR_RUNTIME_DB_USER:-garcar_runtime}:${GARCAR_RUNTIME_DB_PASSWORD:?set GARCAR_RUNTIME_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-garcar}
+      MIGRATIONS_DATABASE_URL: postgresql://${POSTGRES_USER:-garcar_migrator}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-garcar}
+      GARCAR_RUNTIME_DB_USER: ${GARCAR_RUNTIME_DB_USER:-garcar_runtime}
+      GARCAR_RUNTIME_DB_PASSWORD: ${GARCAR_RUNTIME_DB_PASSWORD:?set GARCAR_RUNTIME_DB_PASSWORD}
       DB_CONNECT_RETRIES: "20"
       DB_CONNECT_RETRY_DELAY_SECONDS: "3"
     depends_on:
