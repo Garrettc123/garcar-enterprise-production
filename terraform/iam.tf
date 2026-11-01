@@ -4,7 +4,7 @@ data "aws_iam_policy_document" "ledger_runtime" {
     actions = [
       "s3:GetBucketLocation",
       "s3:GetBucketVersioning",
-      "s3:GetObjectLockConfiguration",
+      "s3:GetBucketObjectLockConfiguration",
       "s3:GetEncryptionConfiguration",
       "s3:GetBucketPublicAccessBlock",
     ]
