@@ -40,14 +40,13 @@ def _database_url() -> str:
 
 @contextmanager
 def db_connection() -> Iterator[psycopg.Connection]:
+    conn = None
     try:
         conn = psycopg.connect(_database_url(), row_factory=dict_row)
         register_vector(conn)
     except psycopg.Error as exc:
-        try:
+        if conn is not None:
             conn.close()
-        except (NameError, UnboundLocalError):
-            pass
         raise HTTPException(status_code=503, detail="Governance database unavailable") from exc
     try:
         yield conn
@@ -208,12 +207,6 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
     with db_connection() as conn:
         with conn.transaction():
             with conn.cursor() as cur:
-                # Lock the control row while verifying so a concurrent kill-switch
-                # activation cannot pass this gate unnoticed.
-                cur.execute("SELECT enabled FROM enterprise_control_state WHERE control_name='execution_kill_switch' FOR SHARE")
-                control = cur.fetchone()
-                if not control or control["enabled"]:
-                    raise HTTPException(status_code=503, detail="Execution is blocked: kill switch active or control state unavailable")
                 cur.execute("SELECT * FROM enterprise_proposals WHERE proposal_id=%s FOR UPDATE", (payload.proposal_id,))
                 proposal = cur.fetchone()
                 if not proposal:
@@ -268,6 +261,12 @@ def verify_execution(payload: VerificationRequest, actor: str = Depends(require_
     with db_connection() as conn:
         with conn.transaction():
             with conn.cursor() as cur:
+                # Lock the control row while verifying so a concurrent kill-switch
+                # activation cannot pass this gate unnoticed.
+                cur.execute("SELECT enabled FROM enterprise_control_state WHERE control_name='execution_kill_switch' FOR SHARE")
+                control = cur.fetchone()
+                if not control or control["enabled"]:
+                    raise HTTPException(status_code=503, detail="Execution is blocked: kill switch active or control state unavailable")
                 cur.execute("SELECT * FROM enterprise_proposals WHERE proposal_id=%s FOR UPDATE", (payload.proposal_id,))
                 proposal = cur.fetchone()
                 if not proposal or proposal["status"] != "APPROVED":
