@@ -186,11 +186,13 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
                     _audit(cur,payload.proposal_id,"PROPOSAL_REJECTED",owner,{"note":payload.note})
                     return {"proposal_id":payload.proposal_id,"status":"REJECTED"}
                 passed, reason = evaluate_policy(proposal["layer"], proposal["parameters"], float(proposal["risk_score"]))
-                if not passed:
+                if not passed and reason != "RISK_REQUIRES_MANUAL_REVIEW":
                     cur.execute("UPDATE enterprise_proposals SET status='REJECTED_POLICY_VIOLATION',updated_at=now() WHERE proposal_id=%s",
                                 (payload.proposal_id,))
                     _audit(cur,payload.proposal_id,"POLICY_REJECTED",owner,{"reason":reason})
                     return {"proposal_id":payload.proposal_id,"status":"REJECTED_POLICY_VIOLATION","reason":reason}
+                if reason == "RISK_REQUIRES_MANUAL_REVIEW" and len(payload.note.strip()) < 20:
+                    raise HTTPException(status_code=422, detail="High-risk approval requires an owner justification of at least 20 characters")
                 cur.execute("""INSERT INTO enterprise_approvals(proposal_id,approver_id,decision,note)
                                VALUES (%s,%s,'APPROVED',%s)""", (payload.proposal_id,owner,payload.note))
                 token = secrets.token_urlsafe(36)
@@ -202,7 +204,7 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
                         authorization_consumed_at=NULL,updated_at=now()
                     WHERE proposal_id=%s
                 """, (token_hash,expires,payload.proposal_id))
-                _audit(cur,payload.proposal_id,"PROPOSAL_APPROVED",owner,{"expires_at":expires.isoformat()})
+                _audit(cur,payload.proposal_id,"PROPOSAL_APPROVED",owner,{"expires_at":expires.isoformat(),"manual_risk_override":reason == "RISK_REQUIRES_MANUAL_REVIEW","approval_note":payload.note})
     return {"proposal_id":payload.proposal_id,"status":"APPROVED","authorization_token":token,
             "expires_at":expires.isoformat()}
 
