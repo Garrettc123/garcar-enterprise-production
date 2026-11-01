@@ -22,6 +22,13 @@ from .policy import evaluate_policy
 
 router = APIRouter(prefix="/v1", tags=["governance"])
 TOKEN_TTL_SECONDS = int(os.getenv("GARCAR_AUTHORIZATION_TTL_SECONDS", "300"))
+_runtime_secrets: dict[str, str] = {}
+
+
+def configure_runtime_secrets(values: dict[str, Any]) -> None:
+    """Receive secrets loaded by the application lifespan from Vault."""
+    global _runtime_secrets
+    _runtime_secrets = {key: str(value) for key, value in values.items() if value is not None}
 
 
 def _database_url() -> str:
@@ -41,21 +48,28 @@ def db_connection() -> Iterator[psycopg.Connection]:
         conn.close()
 
 
+def _secret(name: str) -> str:
+    # Production secrets must come from the Vault-loaded lifespan context.
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        return _runtime_secrets.get(name, "")
+    return _runtime_secrets.get(name) or os.getenv(name, "")
+
+
 def _constant_time_key_match(candidate: str, configured: list[str]) -> bool:
     candidate_digest = hashlib.sha256(candidate.encode()).digest()
     return any(hmac.compare_digest(candidate_digest, hashlib.sha256(key.encode()).digest()) for key in configured if key)
 
 
 def require_agent(x_agent_api_key: str = Header(default="", alias="X-Agent-API-Key")) -> str:
-    configured = [item.strip() for item in os.getenv("GARCAR_AGENT_API_KEYS", "").split(",") if item.strip()]
-    if not configured or not _constant_time_key_match(x_agent_api_key, configured):
+    configured = [item.strip() for item in _secret("GARCAR_AGENT_API_KEYS").split(",") if len(item.strip()) >= 32]
+    if len(x_agent_api_key) < 32 or not configured or not _constant_time_key_match(x_agent_api_key, configured):
         raise HTTPException(status_code=401, detail="Invalid agent credentials")
     return "agent"
 
 
 def require_owner(x_owner_api_key: str = Header(default="", alias="X-Owner-API-Key")) -> str:
-    configured = os.getenv("GARCAR_OWNER_API_KEY", "")
-    if not configured or not hmac.compare_digest(
+    configured = _secret("GARCAR_OWNER_API_KEY")
+    if len(configured) < 32 or len(x_owner_api_key) < 32 or not hmac.compare_digest(
         hashlib.sha256(x_owner_api_key.encode()).digest(),
         hashlib.sha256(configured.encode()).digest(),
     ):
@@ -177,9 +191,8 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
                                 (payload.proposal_id,))
                     _audit(cur,payload.proposal_id,"POLICY_REJECTED",owner,{"reason":reason})
                     return {"proposal_id":payload.proposal_id,"status":"REJECTED_POLICY_VIOLATION","reason":reason}
-                if proposal["requires_hitl"]:
-                    cur.execute("""INSERT INTO enterprise_approvals(proposal_id,approver_id,decision,note)
-                                   VALUES (%s,%s,'APPROVED',%s)""", (payload.proposal_id,owner,payload.note))
+                cur.execute("""INSERT INTO enterprise_approvals(proposal_id,approver_id,decision,note)
+                               VALUES (%s,%s,'APPROVED',%s)""", (payload.proposal_id,owner,payload.note))
                 token = secrets.token_urlsafe(36)
                 token_hash = hashlib.sha256(token.encode()).hexdigest()
                 expires = datetime.now(timezone.utc) + timedelta(seconds=TOKEN_TTL_SECONDS)
@@ -201,8 +214,8 @@ def verify_execution(payload: VerificationRequest, actor: str = Depends(require_
         raise HTTPException(status_code=503, detail="Emergency kill switch active; execution verification halted")
     if payload.receipt.get("success") is not True:
         raise HTTPException(status_code=422, detail="Receipt must explicitly attest success=true")
-    signing_key = os.getenv("GARCAR_EXECUTION_SIGNING_KEY", "")
-    if not signing_key:
+    signing_key = _secret("GARCAR_EXECUTION_SIGNING_KEY")
+    if len(signing_key) < 32:
         raise HTTPException(status_code=503, detail="Execution receipt verification is not configured")
     signed_body = _canonical({"proposal_id":payload.proposal_id,"executor_id":payload.executor_id,"receipt":payload.receipt})
     expected = hmac.new(signing_key.encode(), signed_body, hashlib.sha256).hexdigest()
