@@ -9,7 +9,7 @@ This branch adds a guarded governance and semantic-memory API to the existing Fa
 - pgvector 1536-dimensional embeddings with an HNSW cosine index.
 - Agent API-key authentication and a separate owner API key for approval and kill-switch control.
 - Idempotent proposal submission.
-- Budget, layer, and risk policy checks.
+- Budget and layer policy checks; risk above the automated threshold requires an authenticated owner decision with a written justification (at least 20 characters).
 - Short-lived, single-use authorization tokens stored only as SHA-256 hashes.
 - Signed execution receipts; the gateway accepts a receipt only when the configured executor signature validates and the receipt explicitly says `success: true`.
 - Append-only audit rows with a SHA-256 hash chain and database trigger blocking ordinary UPDATE/DELETE operations.
