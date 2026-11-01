@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import hvac
@@ -48,7 +49,9 @@ async def lifespan(app: FastAPI):
         vault_data = response["data"]["data"]
         configure_runtime_secrets(vault_data)
         if cfg.environment == "production":
-            required = ("STRIPE_WEBHOOK_SECRET", "GARCAR_AGENT_API_KEYS", "GARCAR_OWNER_API_KEY", "GARCAR_EXECUTION_SIGNING_KEY")
+            required = ["STRIPE_WEBHOOK_SECRET"]
+            if os.getenv("ENABLE_GOVERNANCE_DB", "false").lower() == "true":
+                required.extend(("GARCAR_AGENT_API_KEYS", "GARCAR_OWNER_API_KEY", "GARCAR_EXECUTION_SIGNING_KEY"))
             missing = [name for name in required if not vault_data.get(name)]
             if missing:
                 raise RuntimeError("Required production secrets missing from Vault: " + ", ".join(missing))
