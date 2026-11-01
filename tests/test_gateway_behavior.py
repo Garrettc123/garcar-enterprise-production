@@ -183,6 +183,25 @@ def test_worm_verification_requires_encryption():
         main.verify_worm_configuration(s3, "ledger")
 
 
+def test_worm_verification_rejects_kms_until_runtime_policy_is_extended():
+    s3 = Mock()
+    s3.get_object_lock_configuration.return_value = {
+        "ObjectLockConfiguration": {
+            "ObjectLockEnabled": "Enabled",
+            "Rule": {"DefaultRetention": {"Mode": "COMPLIANCE", "Days": 365}},
+        }
+    }
+    s3.get_bucket_versioning.return_value = {"Status": "Enabled"}
+    configure_bucket_security(s3)
+    s3.get_bucket_encryption.return_value = {
+        "ServerSideEncryptionConfiguration": {
+            "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "aws:kms"}}]
+        }
+    }
+    with pytest.raises(RuntimeError, match="KMS requires a separately reviewed runtime policy"):
+        main.verify_worm_configuration(s3, "ledger")
+
+
 def test_worm_verification_fails_when_object_lock_missing():
     s3 = Mock()
     s3.get_object_lock_configuration.side_effect = ClientError(
