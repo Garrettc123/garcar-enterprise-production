@@ -30,6 +30,8 @@ jobs:
       - name: Install
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Compile
-        run: python -m compileall -q src
+        run: python -m compileall -q src tests
+      - name: Governance policy and authorization tests
+        run: python -m pytest -q tests/test_governance_policy.py tests/test_governance_auth.py
       - name: Import check
         run: python -c "from src.main import app; print('gateway OK')"
