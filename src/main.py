@@ -12,7 +12,7 @@ from .config import settings
 from .ledger import LedgerError, seal_record
 from .orchestrator import PermitInput, evaluate_permit
 from .payouts import record_verified_payout
-from .governance.router import router as governance_router, configure_runtime_secrets
+from .governance.router import router as governance_router, configure_runtime_secrets, db_connection
 
 log = logging.getLogger("garcar")
 cfg = settings()
@@ -74,7 +74,21 @@ if os.getenv("ENABLE_GOVERNANCE_DB", "false").lower() == "true":
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "environment": cfg.environment, "execution_mode": "guarded"}
+    response = {"status": "ok", "environment": cfg.environment, "execution_mode": "guarded"}
+    if os.getenv("ENABLE_GOVERNANCE_DB", "false").lower() == "true":
+        try:
+            with db_connection() as conn:
+                migration = conn.execute(
+                    "SELECT 1 FROM enterprise_schema_migrations WHERE version='001_governance_core'"
+                ).fetchone()
+                if not migration:
+                    raise HTTPException(status_code=503, detail="Governance database migration is not applied")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Governance database readiness check failed") from exc
+        response["governance_database"] = "connected"
+    return response
 
 @app.post("/webhook/permits/dfw")
 async def ingest_permit(permit: PermitInput):
