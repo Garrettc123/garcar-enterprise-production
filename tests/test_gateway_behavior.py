@@ -228,34 +228,42 @@ def test_duplicate_s3_event_returns_original_ledger_hash(monkeypatch):
         {"Error": {"Code": "PreconditionFailed"}},
         "PutObject",
     )
+    chained_record = {
+        **record,
+        "chain": {"sequence": 4, "previous_hash": "c" * 64},
+    }
+    event_digest = hashlib.sha256(json.dumps(
+        chained_record, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")).hexdigest()
+    stored_event = {**chained_record, "sha256": event_digest}
+    def locked_response(value):
+        return {
+            "Body": io.BytesIO(json.dumps(value).encode("utf-8")),
+            "ObjectLockMode": "COMPLIANCE",
+            "ObjectLockRetainUntilDate": "2027-10-30T00:00:00Z",
+        }
     s3.get_object.side_effect = [
-        {
-            "Body": io.BytesIO(json.dumps({
-                "event_id": str(payload.event_id),
-                "payload_sha256": request_hash,
-                "state": "RESERVED",
-            }).encode("utf-8")),
-            "ObjectLockMode": "COMPLIANCE",
-            "ObjectLockRetainUntilDate": "2027-10-30T00:00:00Z",
-        },
-        {
-            "Body": io.BytesIO(json.dumps({
-                "event_id": str(payload.event_id),
-                "payload_sha256": request_hash,
-                "event_hash": "b" * 64,
-                "sequence": 4,
-                "state": "COMMITTED",
-            }).encode("utf-8")),
-            "ObjectLockMode": "COMPLIANCE",
-            "ObjectLockRetainUntilDate": "2027-10-30T00:00:00Z",
-        },
+        locked_response({
+            "event_id": str(payload.event_id),
+            "payload_sha256": request_hash,
+            "state": "RESERVED",
+        }),
+        locked_response({
+            "event_id": str(payload.event_id),
+            "payload_sha256": request_hash,
+            "event_hash": event_digest,
+            "sequence": 4,
+            "state": "COMMITTED",
+        }),
+        locked_response(stored_event),
+        locked_response({"sequence": 4, "event_hash": event_digest}),
     ]
     monkeypatch.setattr(main, "_s3_client", lambda: s3)
 
     digest = main.seal_event(payload, {"S3_LEDGER_BUCKET": "ledger"})
 
-    assert digest == "b" * 64
-    assert s3.get_object.call_count == 2
+    assert digest == event_digest
+    assert s3.get_object.call_count == 4
 
 
 def test_payload_rejects_unexpected_fields():
