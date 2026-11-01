@@ -83,7 +83,9 @@ Do not set `enable_bucket_creation=true` until the exact AWS account, bucket nam
 
 Use a dedicated non-production AWS account and isolated Object Lock bucket. Verify:
 - valid permit event is appended and chain head advances;
-- repeat event IDs are rejected safely;
+- identical repeat event IDs and payloads return the original ledger hash;
+- reusing an event ID with changed payload is rejected;
+- incomplete reservations or missing receipts fail the verifier and require reconciliation;
 - a concurrent head update fails closed;
 - an unlinked immutable event is detected by `scripts/verify_chain.py`;
 - an interrupted write can be reconciled before writes resume;
