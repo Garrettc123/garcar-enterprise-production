@@ -34,6 +34,15 @@ def test_vault_missing_configuration_fails_closed(monkeypatch):
         main._vault_client()
 
 
+def test_production_vault_requires_https(monkeypatch):
+    monkeypatch.setattr(main, "APP_ENV", "production")
+    monkeypatch.setattr(main, "VAULT_ADDR", "http://vault.example:8200")
+    monkeypatch.setattr(main, "VAULT_ROLE_ID", "role-id")
+    monkeypatch.setattr(main, "VAULT_SECRET_ID", "secret-id")
+    with pytest.raises(RuntimeError, match="must use HTTPS"):
+        main._vault_client()
+
+
 def valid_runtime_values():
     return {
         "S3_LEDGER_BUCKET": "garcar-ledger-test",
