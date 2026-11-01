@@ -6,7 +6,7 @@ It does not send contractor outreach, approve contractors, initiate Stripe payou
 or deploy cloud infrastructure.
 
 ## Required runtime configuration
-- Vault AppRole: VAULT_ADDR, VAULT_ROLE_ID, VAULT_SECRET_ID.
+- Vault AppRole: VAULT_ADDR (HTTPS in production), VAULT_ROLE_ID, VAULT_SECRET_ID. Plain HTTP is accepted only for explicitly local/development/test endpoints.
 - Vault KV v2 path: secret/data/garcar/production/keys (mount/path configurable).
 - Vault public approval key: OWNER_APPROVAL_PUBLIC_KEY (private signing key stays offline; the verified signature is retained with the approval record).
 - Vault Stripe webhook secret: STRIPE_WEBHOOK_SECRET.
