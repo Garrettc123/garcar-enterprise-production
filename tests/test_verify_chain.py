@@ -64,20 +64,17 @@ def add_idempotency_objects(
     })
 
 
-class FakePaginator:
-    def __init__(self, keys: list[str]):
-        self.keys = keys
-
-    def paginate(self, **_kwargs):
-        return [{"Contents": [{"Key": key} for key in self.keys]}]
-
-
 class FakeS3:
     def __init__(self, objects: dict[str, dict[str, Any]]):
         self.objects = objects
 
     def get_paginator(self, _name: str):
-        return FakePaginator([])
+        return self
+
+    def paginate(self, Bucket: str, Prefix: str):
+        del Bucket
+        keys = sorted(key for key in self.objects if key.startswith(Prefix))
+        return [{"Contents": [{"Key": key} for key in keys]}]
 
     def get_object(self, Bucket: str, Key: str):
         del Bucket
@@ -86,36 +83,6 @@ class FakeS3:
             **source,
             "Body": io.BytesIO(source["Body"].getvalue()),
         }
-
-    def list_objects_v2(self, **_kwargs):
-        raise AssertionError("Verifier should use paginated listing")
-
-
-class PrefixPaginator(FakePaginator):
-    def __init__(self, objects: dict[str, dict[str, Any]], prefix: str):
-        self.objects = objects
-        self.prefix = prefix
-
-    def paginate(self, **_kwargs):
-        keys = sorted(
-            key for key in self.objects if key.startswith(self.prefix)
-        )
-        return [{"Contents": [{"Key": key} for key in keys]}]
-
-
-def make_s3(objects: dict[str, dict[str, Any]]) -> FakeS3:
-    class PrefixAwareFakeS3(FakeS3):
-        def get_paginator(self, _name: str):
-            # Prefix is supplied when paginate() is called.
-            return self
-
-        def paginate(self, Bucket: str, Prefix: str):
-            del Bucket
-            keys = sorted(key for key in self.objects if key.startswith(Prefix))
-            return [{"Contents": [{"Key": key} for key in keys]}]
-
-    return PrefixAwareFakeS3(objects)
-
 
 def make_head(sequence: int, event_hash: str) -> dict[str, Any]:
     return locked_json({"sequence": sequence, "event_hash": event_hash})
