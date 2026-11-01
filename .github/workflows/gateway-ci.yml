@@ -5,14 +5,22 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'tests/**'
+      - 'init_db.py'
       - 'requirements.txt'
+      - '.github/workflows/**'
       - 'Dockerfile'
+      - 'docker-compose*.yml'
   push:
     branches: [main]
     paths:
       - 'src/**'
+      - 'tests/**'
+      - 'init_db.py'
       - 'requirements.txt'
+      - '.github/workflows/**'
       - 'Dockerfile'
+      - 'docker-compose*.yml'
 
 permissions:
   contents: read
@@ -20,6 +28,28 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: garcar
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d garcar"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      ENVIRONMENT: development
+      ENABLE_GOVERNANCE_DB: "true"
+      MIGRATIONS_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/garcar
+      DATABASE_URL: postgresql://garcar_runtime:rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr@localhost:5432/garcar
+      GARCAR_RUNTIME_DB_USER: garcar_runtime
+      GARCAR_RUNTIME_DB_PASSWORD: rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,6 +60,8 @@ jobs:
       - name: Install
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Compile
-        run: python -m compileall -q src
+        run: python -m compileall -q src tests
+      - name: Governance policy, authorization, PostgreSQL and pgvector integration tests
+        run: python -m pytest -q tests/test_governance_policy.py tests/test_governance_auth.py tests/test_governance_postgres_integration.py tests/test_gateway_health.py
       - name: Import check
         run: python -c "from src.main import app; print('gateway OK')"
