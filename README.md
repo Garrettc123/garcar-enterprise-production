@@ -80,7 +80,7 @@ Configure Vault AppRole values and non-secret settings in your deployment secret
 docker compose up --build
 ```
 
-The container listens on `PORT` (default 8000). `/live` reports process liveness. `/health` reports readiness only when Vault is reachable and S3 Object Lock, versioning, default COMPLIANCE retention, all four public-access blocks, and server-side encryption are verified.
+Run `python scripts/production_preflight.py` from a trusted checkout after configuring Vault and AWS workload identity; it checks Vault value formats and S3 security settings without printing secrets or changing cloud resources. The container listens on `PORT` (default 8000). `/live` reports process liveness. `/health` reports readiness only when Vault is reachable and S3 Object Lock, versioning, default COMPLIANCE retention, all four public-access blocks, and server-side encryption are verified.
 
 ## Verification commands
 
