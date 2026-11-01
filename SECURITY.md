@@ -21,7 +21,7 @@ The service validates the required secret formats before accepting requests or r
 No static AWS keys, Vault root token, fake provider credentials, or secret fallbacks are included.
 
 ## Immutable ledger requirements
-Before accepting traffic, readiness verifies S3 Object Lock, bucket versioning, default COMPLIANCE retention, all four S3 Block Public Access flags, and default server-side encryption (AES256 or AWS KMS). Each event is written to a shared sequence with a previous-event hash, a conditional head update, and a unique event-ID reservation. A concurrent head conflict fails closed and requires manual reconciliation of the orphaned immutable event before writes resume.
+Before accepting traffic, readiness verifies S3 Object Lock, bucket versioning, default COMPLIANCE retention, all four S3 Block Public Access flags, and default server-side encryption (AES256 or AWS KMS). Each event is written to a shared sequence with a previous-event hash, a conditional head update, an immutable event-ID reservation, and a completion receipt. An identical retry returns the original committed hash; a different payload under the same event ID is rejected. If a write is interrupted before its receipt is sealed, retries fail closed and manual reconciliation is required before writes resume. A concurrent head conflict also requires reconciliation of the orphaned immutable event.
 
 ## Runtime AWS permissions
 
