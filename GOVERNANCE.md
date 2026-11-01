@@ -8,7 +8,7 @@
 
 ## Owner approval
 - Owner approval statements are Ed25519 signed and scoped to one permit, a validity window, evidence references, and a small allowlist of draft/export actions.
-- The API stores only the Ed25519 public key. The private signing key remains offline with the owner.
+- The API stores only the Ed25519 public key. The private signing key remains offline with the owner. The verified public signature is stored alongside the approval statement in the immutable audit chain.
 - Generate a keypair locally with `scripts/generate_owner_keypair.py`; store only the printed public key in Vault as `OWNER_APPROVAL_PUBLIC_KEY`.
 - Sign a structured approval JSON locally with `scripts/sign_owner_approval.py`; submit the approval JSON and returned signature in `X-Garcar-Approval-Signature`.
 - Approval validation does not execute the approved action. No email, outreach, export, charge, refund, transfer, or payout is initiated by this service.
