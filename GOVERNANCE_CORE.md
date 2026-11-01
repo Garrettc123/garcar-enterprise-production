@@ -30,7 +30,7 @@ Then run:
 docker compose -f docker-compose.yml -f docker-compose.governance.yml up --build
 ```
 
-The base Compose file still requires its existing Vault and S3 configuration. The governance overlay adds a persistent pgvector PostgreSQL service and enables migrations.
+The base Compose file still requires its existing Vault and S3 configuration. The governance overlay adds a persistent pgvector PostgreSQL service and enables migrations. On a new database volume, startup creates or hardens the dedicated runtime role and grants only the table operations required by the API; it rejects runtime roles that inherit privileges from other roles. Existing PostgreSQL volumes must be reviewed before changing the configured migration username.
 
 ## API surface
 
