@@ -89,6 +89,8 @@ def _read_completed_receipt(
     reservation = _read_locked_json(s3, bucket, reservation_key)
     if reservation is None:
         raise RuntimeError("Event reservation conflicted but cannot be read")
+    if reservation.get("event_id") != event_id or reservation.get("state") != "RESERVED":
+        raise RuntimeError("Event idempotency reservation is invalid")
     if reservation.get("payload_sha256") != payload_hash:
         raise HTTPException(
             status_code=409,
@@ -101,7 +103,11 @@ def _read_completed_receipt(
         raise RuntimeError(
             "Event ID is reserved but has no completion receipt; manual reconciliation is required"
         )
-    if receipt.get("payload_sha256") != payload_hash:
+    if (
+        receipt.get("event_id") != event_id
+        or receipt.get("state") != "COMMITTED"
+        or receipt.get("payload_sha256") != payload_hash
+    ):
         raise RuntimeError("Event completion receipt does not match its reservation")
 
     sequence = receipt.get("sequence")
@@ -114,6 +120,28 @@ def _read_completed_receipt(
         or any(ch not in "0123456789abcdef" for ch in event_hash)
     ):
         raise RuntimeError("Event completion receipt hash is invalid")
+
+    event_key = f"evidence/chain/events/{sequence:020d}-{event_id}.json"
+    stored_event = _read_locked_json(s3, bucket, event_key)
+    if stored_event is None:
+        raise RuntimeError("Committed event is missing; manual reconciliation is required")
+    stored_hash = stored_event.pop("sha256", None)
+    actual_hash = hashlib.sha256(_canonical_json(stored_event)).hexdigest()
+    chain = stored_event.get("chain", {})
+    payload_record = {name: value for name, value in stored_event.items() if name != "chain"}
+    if (
+        stored_hash != event_hash
+        or actual_hash != event_hash
+        or chain.get("sequence") != sequence
+        or hashlib.sha256(_canonical_json(payload_record)).hexdigest() != payload_hash
+    ):
+        raise RuntimeError("Stored event does not match its completion receipt")
+
+    head, _etag = _read_head(s3, bucket)
+    if head.get("sequence", 0) < sequence:
+        raise RuntimeError("Chain head does not include the completed event")
+    if head.get("sequence") == sequence and head.get("event_hash") != event_hash:
+        raise RuntimeError("Chain head conflicts with the completion receipt")
     return event_hash
 
 
