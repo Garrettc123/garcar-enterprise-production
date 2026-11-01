@@ -20,6 +20,7 @@ on:
       - 'requirements.txt'
       - '.github/workflows/**'
       - 'Dockerfile'
+      - 'docker-compose*.yml'
 
 permissions:
   contents: read
