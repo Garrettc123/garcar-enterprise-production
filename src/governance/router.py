@@ -60,11 +60,38 @@ def _constant_time_key_match(candidate: str, configured: list[str]) -> bool:
     return any(hmac.compare_digest(candidate_digest, hashlib.sha256(key.encode()).digest()) for key in configured if key)
 
 
+def _configured_agent_keys() -> list[tuple[str, str]]:
+    """Return (agent_id, key) pairs; legacy bare keys get a stable non-secret identity."""
+    pairs: list[tuple[str, str]] = []
+    for item in _secret("GARCAR_AGENT_API_KEYS").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if ":" in item:
+            agent_id, key = item.split(":", 1)
+            agent_id = agent_id.strip()
+            key = key.strip()
+        else:
+            key = item
+            agent_id = "agent_" + hashlib.sha256(key.encode()).hexdigest()[:16]
+        if agent_id and len(key) >= 32:
+            pairs.append((agent_id, key))
+    return pairs
+
+
 def require_agent(x_agent_api_key: str = Header(default="", alias="X-Agent-API-Key")) -> str:
-    configured = [item.strip() for item in _secret("GARCAR_AGENT_API_KEYS").split(",") if len(item.strip()) >= 32]
-    if len(x_agent_api_key) < 32 or not configured or not _constant_time_key_match(x_agent_api_key, configured):
+    if len(x_agent_api_key) < 32:
         raise HTTPException(status_code=401, detail="Invalid agent credentials")
-    return "agent"
+    candidate_digest = hashlib.sha256(x_agent_api_key.encode()).digest()
+    for agent_id, key in _configured_agent_keys():
+        if hmac.compare_digest(candidate_digest, hashlib.sha256(key.encode()).digest()):
+            return agent_id
+    raise HTTPException(status_code=401, detail="Invalid agent credentials")
+
+
+def _require_owned_namespace(namespace: str, agent_id: str) -> None:
+    if not hmac.compare_digest(namespace, agent_id):
+        raise HTTPException(status_code=403, detail="Agent may access only its own memory namespace")
 
 
 def require_owner(x_owner_api_key: str = Header(default="", alias="X-Owner-API-Key")) -> str:
@@ -142,6 +169,8 @@ def governance_health(_: str = Depends(require_agent)) -> dict[str, str]:
 
 @router.post("/governance/propose", status_code=202)
 def submit_proposal(payload: ProposalRequest, actor: str = Depends(require_agent)) -> dict[str, str]:
+    if not hmac.compare_digest(payload.agent_id, actor):
+        raise HTTPException(status_code=403, detail="Proposal agent_id must match the authenticated agent")
     body = payload.model_dump()
     digest = hashlib.sha256(_canonical(body)).hexdigest()
     with db_connection() as conn:
@@ -251,7 +280,8 @@ def verify_execution(payload: VerificationRequest, actor: str = Depends(require_
 
 
 @router.post("/memory/store", status_code=201)
-def store_memory(payload: MemoryStoreRequest, _: str = Depends(require_agent)) -> dict[str, Any]:
+def store_memory(payload: MemoryStoreRequest, actor: str = Depends(require_agent)) -> dict[str, Any]:
+    _require_owned_namespace(payload.namespace, actor)
     if not all(math.isfinite(value) for value in payload.embedding):
         raise HTTPException(status_code=422, detail="Embedding values must be finite")
     with db_connection() as conn:
@@ -264,7 +294,8 @@ def store_memory(payload: MemoryStoreRequest, _: str = Depends(require_agent)) -
 
 
 @router.post("/memory/search")
-def search_memory(payload: VectorQueryRequest, _: str = Depends(require_agent)) -> dict[str, Any]:
+def search_memory(payload: VectorQueryRequest, actor: str = Depends(require_agent)) -> dict[str, Any]:
+    _require_owned_namespace(payload.namespace, actor)
     if not all(math.isfinite(value) for value in payload.query_embedding):
         raise HTTPException(status_code=422, detail="Query embedding values must be finite")
     with db_connection() as conn:
