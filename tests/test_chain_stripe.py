@@ -72,6 +72,21 @@ def test_chain_append_creates_event_head_and_completion_receipt():
     assert receipt_doc["state"] == "COMMITTED"
 
 
+def test_event_id_rejects_path_separators_before_writing():
+    s3 = Mock()
+
+    with pytest.raises(ValueError, match="safe identifier"):
+        append_event(
+            s3,
+            "ledger",
+            "../escape",
+            {"event_type": "TEST"},
+            locked_bucket,
+        )
+
+    s3.put_object.assert_not_called()
+
+
 def test_duplicate_completed_event_returns_original_hash():
     record = {"event_type": "TEST", "value": 10}
     request_hash = payload_hash(record)
