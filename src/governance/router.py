@@ -8,6 +8,7 @@ import secrets
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
+import math
 
 import psycopg
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -175,7 +176,7 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
                     cur.execute("UPDATE enterprise_proposals SET status='REJECTED_POLICY_VIOLATION',updated_at=now() WHERE proposal_id=%s",
                                 (payload.proposal_id,))
                     _audit(cur,payload.proposal_id,"POLICY_REJECTED",owner,{"reason":reason})
-                    raise HTTPException(status_code=403, detail=f"Policy rejected proposal: {reason}")
+                    return {"proposal_id":payload.proposal_id,"status":"REJECTED_POLICY_VIOLATION","reason":reason}
                 if proposal["requires_hitl"]:
                     cur.execute("""INSERT INTO enterprise_approvals(proposal_id,approver_id,decision,note)
                                    VALUES (%s,%s,'APPROVED',%s)""", (payload.proposal_id,owner,payload.note))
@@ -196,6 +197,10 @@ def evaluate_proposal(payload: EvaluationRequest, owner: str = Depends(require_o
 @router.post("/governance/verify")
 def verify_execution(payload: VerificationRequest, actor: str = Depends(require_agent),
                      x_execution_signature: str = Header(default="", alias="X-Execution-Signature")) -> dict[str, Any]:
+    if execution_is_blocked():
+        raise HTTPException(status_code=503, detail="Emergency kill switch active; execution verification halted")
+    if payload.receipt.get("success") is not True:
+        raise HTTPException(status_code=422, detail="Receipt must explicitly attest success=true")
     signing_key = os.getenv("GARCAR_EXECUTION_SIGNING_KEY", "")
     if not signing_key:
         raise HTTPException(status_code=503, detail="Execution receipt verification is not configured")
@@ -232,6 +237,8 @@ def verify_execution(payload: VerificationRequest, actor: str = Depends(require_
 
 @router.post("/memory/store", status_code=201)
 def store_memory(payload: MemoryStoreRequest, _: str = Depends(require_agent)) -> dict[str, Any]:
+    if not all(math.isfinite(value) for value in payload.embedding):
+        raise HTTPException(status_code=422, detail="Embedding values must be finite")
     with db_connection() as conn:
         with conn.transaction():
             row = conn.execute("""
@@ -243,6 +250,8 @@ def store_memory(payload: MemoryStoreRequest, _: str = Depends(require_agent)) -
 
 @router.post("/memory/search")
 def search_memory(payload: VectorQueryRequest, _: str = Depends(require_agent)) -> dict[str, Any]:
+    if not all(math.isfinite(value) for value in payload.query_embedding):
+        raise HTTPException(status_code=422, detail="Query embedding values must be finite")
     with db_connection() as conn:
         rows = conn.execute("""
             SELECT id,namespace,content,metadata,1-(embedding <=> %s) AS similarity
@@ -265,7 +274,8 @@ def set_kill_switch(enabled: bool, owner: str = Depends(require_owner)) -> dict[
                 ON CONFLICT(control_name) DO UPDATE SET enabled=EXCLUDED.enabled,
                     updated_by=EXCLUDED.updated_by,updated_at=now()
             """, (enabled,owner))
-            _audit(conn.cursor(),None,"KILL_SWITCH_CHANGED",owner,{"enabled":enabled})
+            with conn.cursor() as cur:
+                _audit(cur,None,"KILL_SWITCH_CHANGED",owner,{"enabled":enabled})
     return {"kill_switch_active":enabled}
 
 
