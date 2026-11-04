@@ -8,7 +8,7 @@ from pathlib import Path
 
 from conftest import ROOT
 
-SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "tests", "approval_gate"}
+SKIP_DIRS = {".git", "node_modules", "venv", ".venv", ".venv-gw", ".venv-plat", "__pycache__", "tests", "approval_gate"}
 
 PY_PATTERNS = re.compile(
     r"smtplib\.SMTP|\.sendmail\(|api\.sendgrid\.com|api\.resend\.com|api\.postmarkapp\.com"

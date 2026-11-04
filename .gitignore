@@ -9,3 +9,6 @@ venv/
 *.tfstate.backup
 .idea/
 .vscode/
+.venv-*/
+*.sqlite3
+*.db
