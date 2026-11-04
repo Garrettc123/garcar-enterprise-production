@@ -28,8 +28,12 @@ class AgentControlPlane:
     @staticmethod
     def _read_wrapped_file(path: Path) -> dict[str, Any]:
         raw = path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        # The imported ExportBlock files are wrapped as {content, encoding, ...}.
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            data = None
+        # The imported ExportBlock files may arrive wrapped as {content, encoding, ...}
+        # or as unwrapped plain text; tolerate both.
         return data if isinstance(data, dict) else {"content": raw}
 
     def _load_agents(self) -> list[dict[str, Any]]:
