@@ -5,7 +5,7 @@
 **Price:** $2,500 one time, three business days  
 **Fallback:** $497 lead-export review, credited to the $2,500
 
-**LLA-47 wedge (trades):** $47 lead-loss map — https://buy.stripe.com/3cI00j7YV0hQgDp8BR43S2v
+**LLA-47 wedge (trades):** $47 lead-loss map — link inactive as of 2026-11-04 (Stripe reports "no longer active"); recreate in Stripe before promoting. Live trades offer: $299 audit — https://buy.stripe.com/14A5kD3IF9Sqdrd05l43S2l
 
 Page: https://garrettc123.github.io/  
 One-pager to send after a call: https://garrettc123.github.io/overview.html  
