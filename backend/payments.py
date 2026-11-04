@@ -189,8 +189,10 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         logger.error(f"Webhook verification failed: {e}")
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
-    event_type = event.get("type", "")
-    data = event.get("data", {}).get("object", {})
+    # Normalize to plain dicts: stripe>=12 removed .get() on StripeObject.
+    event_dict = event.to_dict() if hasattr(event, "to_dict") else dict(event)
+    event_type = event_dict.get("type", "")
+    data = (event_dict.get("data") or {}).get("object") or {}
     logger.info(f"Stripe webhook: {event_type}")
 
     if event_type == "checkout.session.completed":
@@ -304,7 +306,8 @@ def _get_line_items(session_id: str) -> list:
     """Retrieve line items for a checkout session from Stripe."""
     try:
         items = stripe.checkout.Session.list_line_items(session_id, limit=10)
-        return items.get("data", [])
+        items_dict = items.to_dict() if hasattr(items, "to_dict") else dict(items)
+        return items_dict.get("data", [])
     except Exception as e:
         logger.warning(f"Could not fetch line items for session {session_id}: {e}")
         return []
