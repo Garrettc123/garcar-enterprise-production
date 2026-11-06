@@ -395,6 +395,17 @@ def run_rhns_audit(
     Called by the Stripe webhook handler on Starter Audit purchase.
     Returns a result dict with status and engagement metadata.
     """
+    # PAUSED: this pipeline generates unsupported financial and operational
+    # conclusions without verified customer source records. Never send,
+    # archive or label it as completed until a sourced audit replaces it.
+    logger.warning("RHNS audit withheld: verified customer evidence not available")
+    return {
+        "engagement_id": engagement_id,
+        "email_sent": False,
+        "archive_dispatched": False,
+        "status": "blocked_unverified_evidence",
+    }
+
     from datetime import datetime
     import uuid
 
