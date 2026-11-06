@@ -21,69 +21,17 @@ class ExpansionStage:
         self.db = db
 
     def evaluate_and_upsell(self, customer_id: str) -> Dict[str, Any]:
-        """
-        Score customer health and surface the highest-probability expansion.
-        """
-        now = datetime.now(timezone.utc).isoformat()
-
-        # In production these metrics come from real usage + revenue attribution
-        health = self._compute_health(customer_id)
-
-        upsell_candidates: List[Dict[str, Any]] = []
-
-        if health["roi"] > 2.5 and health["usage_percentile"] > 0.7:
-            upsell_candidates.append(
-                {
-                    "type": "plan_upgrade",
-                    "from": health.get("current_plan", "starter"),
-                    "to": "professional",
-                    "reason": "High ROI + high usage — ready for next tier",
-                    "estimated_mrr_lift": 100.0,
-                }
-            )
-
-        if health["channels_active"] < 3:
-            upsell_candidates.append(
-                {
-                    "type": "add_channel",
-                    "product": "extra_ai_agent",
-                    "reason": "Under-utilized channel capacity",
-                    "estimated_mrr_lift": 49.0,
-                }
-            )
-
-        if health["roi"] < 1.2:
-            # Protective action instead of pure upsell
-            upsell_candidates.append(
-                {
-                    "type": "success_intervention",
-                    "action": "trigger_re_engagement_sequence",
-                    "reason": "ROI below healthy threshold",
-                    "estimated_mrr_lift": 0.0,
-                }
-            )
-
-        result = {
+        """Do not score or upsell customers without verified billing and usage."""
+        return {
             "customer_id": customer_id,
             "stage": "expansion",
-            "evaluated_at": now,
-            "health": health,
-            "upsell_candidates": upsell_candidates,
-            "money_events": [
-                {
-                    "type": "expansion_opportunity",
-                    "potential_mrr_lift": sum(c.get("estimated_mrr_lift", 0) for c in upsell_candidates),
-                    "status": "identified",
-                }
-            ],
-            "next_action": "present_best_upsell_or_intervene",
-            "status": "expansion_scored",
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "health": self._compute_health(customer_id),
+            "upsell_candidates": [],
+            "money_events": [],
+            "next_action": "connect_real_billing_and_usage",
+            "status": "evidence_unavailable",
         }
-
-        logger.info(
-            f"Expansion evaluation for {customer_id}: ROI={health['roi']:.2f}, candidates={len(upsell_candidates)}"
-        )
-        return result
 
     def _compute_health(self, customer_id: str) -> Dict[str, Any]:
         """Placeholder — replace with real metrics from billing + usage tables."""
