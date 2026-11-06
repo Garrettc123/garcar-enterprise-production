@@ -34,13 +34,13 @@ class ExpansionStage:
         }
 
     def _compute_health(self, customer_id: str) -> Dict[str, Any]:
-        """Placeholder — replace with real metrics from billing + usage tables."""
+        """Unknown health is not zero: require source-backed metrics."""
         return {
             "customer_id": customer_id,
-            "current_plan": "starter",
-            "roi": 3.4,
-            "usage_percentile": 0.82,
-            "channels_active": 2,
-            "days_since_last_value": 3,
-            "churn_risk": 0.12,
+            "current_plan": None,
+            "roi": None,
+            "usage_percentile": None,
+            "channels_active": None,
+            "days_since_last_value": None,
+            "churn_risk": None,
         }
