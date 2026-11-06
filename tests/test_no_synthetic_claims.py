@@ -18,6 +18,11 @@ class NoSyntheticProductionClaimsTests(unittest.TestCase):
             "money_flow_loop/stages/referral.py",
             "money_flow_loop/stages/attention.py",
             "money_flow_loop/orchestrator.py",
+            "money_flow_loop/api.py",
+            "money_flow_loop/stages/expansion.py",
+            "money_flow_loop/stages/conversion.py",
+            "backend/payments.py",
+            "backend/rhns_audit.py",
             "crm/nurture_sequence.py",
         ]:
             with self.subTest(path=path):
@@ -59,6 +64,34 @@ class NoSyntheticProductionClaimsTests(unittest.TestCase):
         combined = " ".join(d["body"] for d in drafts)
         for banned in ["[CALENDLY_LINK]", "$2,200/month recovered", "in their words"]:
             self.assertNotIn(banned, combined)
+
+    def test_expansion_is_unverified(self):
+        value = source("money_flow_loop/stages/expansion.py")
+        self.assertIn('"status": "evidence_unavailable"', value)
+        self.assertIn('"roi": None', value)
+        self.assertIn('"churn_risk": None', value)
+        self.assertIn('"money_events": []', value)
+        for forbidden in ['"roi": 3.4', '"usage_percentile": 0.82',
+                          '"churn_risk": 0.12', '"estimated_mrr_lift": 100.0']:
+            self.assertNotIn(forbidden, value)
+
+    def test_lead_endpoint_rejects_unknown_identity(self):
+        value = source("money_flow_loop/api.py")
+        self.assertIn('status_code=422', value)
+
+    def test_paid_checkout_requires_confirmation(self):
+        value = source("backend/payments.py")
+        self.assertIn('data.get("payment_status") != "paid"', value)
+        self.assertIn('if user_id and plan in PLANS:', value)
+        self.assertNotIn('"https://buy.stripe.com/garcar-recovery-sprint"', value)
+
+    def test_unverified_rhns_audit_cannot_be_generated(self):
+        value = source("backend/rhns_audit.py")
+        self.assertIn('"requires_verified_data_and_manual_fulfillment"', value)
+        for forbidden in ['"$1-5M"', '"$40-120K/year"',
+                          "The three leaks above are not independent",
+                          "Auto-generated audit for"]:
+            self.assertNotIn(forbidden, value)
 
     def test_controller_does_not_claim_live_cash_flow(self):
         value = source("money_flow_loop/orchestrator.py")
