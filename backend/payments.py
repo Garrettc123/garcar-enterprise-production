@@ -287,10 +287,7 @@ def _handle_checkout_completed(session: dict):
                 company_name=metadata.get("company_name", ""),
                 checkout_metadata=metadata,
                 engagement_id=f"ENG-{session_id[:8].upper()}",
-                upsell_url=os.getenv(
-                    "RECOVERY_SPRINT_URL",
-                    "https://buy.stripe.com/garcar-recovery-sprint",
-                ),
+                upsell_url=os.getenv("RECOVERY_SPRINT_URL", ""),
             )
             logger.info(f"RHNS audit complete: {result}")
         except Exception as e:
@@ -299,7 +296,7 @@ def _handle_checkout_completed(session: dict):
 
     # ── AI Growth Engine — trigger onboarding sequence ──
     ai_growth_engine_ids = set(
-        os.getenv("AI_GROWTH_ENGINE_PRODUCT_IDS", "prod_AIGrowthEngine").split(",")
+        os.getenv("AI_GROWTH_ENGINE_PRODUCT_IDS", "").split(",")
     )
     if product_ids & ai_growth_engine_ids:
         logger.info(f"AI Growth Engine purchase — triggering onboarding for {customer_email}")
