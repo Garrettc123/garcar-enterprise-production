@@ -196,11 +196,15 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     logger.info(f"Stripe webhook: {event_type}")
 
     if event_type == "checkout.session.completed":
-        user_id = data.get("metadata", {}).get("user_id")
-        plan = data.get("metadata", {}).get("plan", "starter")
-        amount = data.get("amount_total", 0) / 100
+        if data.get("payment_status") != "paid":
+            logger.warning("Checkout not confirmed paid; skipping revenue recognition")
+            return {"status": "awaiting_payment_confirmation"}
 
-        if user_id:
+        user_id = (data.get("metadata") or {}).get("user_id")
+        plan = (data.get("metadata") or {}).get("plan")
+        amount = (data.get("amount_total") or 0) / 100
+
+        if user_id and plan in PLANS:
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user:
                 user.plan = plan
