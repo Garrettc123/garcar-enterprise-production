@@ -24,7 +24,7 @@ PAYMENTS_BASE = os.getenv(
     "https://garcar-payments.garrettc123.workers.dev",
 )
 
-DEFAULT_SKU = os.getenv("GARCAR_DEFAULT_SKU", "47")  # 47 | 497 | 2500
+DEFAULT_SKU = os.getenv("GARCAR_DEFAULT_SKU", "497")  # 47 | 497 | 2500
 SKU_MAP = {
     "47": {"url": SKU_47, "label": "Contractor Lead Leak Audit", "price": 47},
     "497": {"url": SKU_497, "label": "Lead Export Review", "price": 497},
@@ -58,7 +58,7 @@ DRY_RUN = os.getenv("FLEET_DRY_RUN", "true").lower() in ("1", "true", "yes")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 # GAR-530: Garrett-issued send.email approval (python -m approval_gate.cli grant ...)
 APPROVAL_ID = os.getenv("FLEET_APPROVAL_ID", "")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "Garrett at Garcar <garrett@garcar.io>")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "Garrett at Garcar <gwc2780@gmail.com>")
 LEDGER_PATH = os.getenv("FLEET_LEDGER_PATH", "agents/sales_fleet/fleet_ledger.json")
 
 # Outreach voice (from operator skill — Texas trades, not VC)
