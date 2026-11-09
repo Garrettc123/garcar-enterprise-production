@@ -13,57 +13,61 @@ provider "aws" {
   region = var.aws_region
 }
 
-resource "aws_s3_bucket" "ledger" {
+resource "aws_s3_bucket" "ledger_vault" {
+  count               = var.enable_bucket_creation ? 1 : 0
   bucket              = var.ledger_bucket_name
   object_lock_enabled = true
-  force_destroy       = false
+
+  lifecycle {
+    prevent_destroy = true
+  }
 
   tags = {
     System      = "GarcarEnterprise"
-    Environment = var.environment
     DataClass   = "ImmutableAuditLedger"
+    Environment = "production"
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "ledger" {
-  bucket                  = aws_s3_bucket.ledger.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_versioning" "ledger" {
-  bucket = aws_s3_bucket.ledger.id
+resource "aws_s3_bucket_versioning" "ledger_versioning" {
+  count  = var.enable_bucket_creation ? 1 : 0
+  bucket = aws_s3_bucket.ledger_vault[0].id
 
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "ledger" {
-  bucket = aws_s3_bucket.ledger.id
+resource "aws_s3_bucket_public_access_block" "ledger_public_access" {
+  count                   = var.enable_bucket_creation ? 1 : 0
+  bucket                  = aws_s3_bucket.ledger_vault[0].id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "ledger_encryption" {
+  count  = var.enable_bucket_creation ? 1 : 0
+  bucket = aws_s3_bucket.ledger_vault[0].id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "aws:kms"
+      sse_algorithm = "AES256"
     }
   }
 }
 
-resource "aws_s3_bucket_object_lock_configuration" "ledger" {
-  bucket = aws_s3_bucket.ledger.id
+resource "aws_s3_bucket_object_lock_configuration" "ledger_lock_config" {
+  count  = var.enable_bucket_creation ? 1 : 0
+  bucket = aws_s3_bucket.ledger_vault[0].id
 
   rule {
     default_retention {
       mode = "COMPLIANCE"
-      days = var.retention_days
+      days = var.compliance_retention_days
     }
   }
 
-  depends_on = [aws_s3_bucket_versioning.ledger]
-}
-
-output "ledger_bucket_name" {
-  value = aws_s3_bucket.ledger.id
+  depends_on = [aws_s3_bucket_versioning.ledger_versioning]
 }

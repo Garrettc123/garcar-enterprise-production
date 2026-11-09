@@ -1,0 +1,29 @@
+name: Runner Allocation Diagnostic
+
+on:
+  push:
+    branches:
+      - release/garcar-production-2026-10-31
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  hosted-runner:
+    name: Minimal ubuntu-latest allocation probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Confirm hosted runner was assigned
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_NAME:-}"
+          printf 'runner_name=%s\n' "$RUNNER_NAME"
+          printf 'runner_os=%s\n' "$RUNNER_OS"
+          printf 'runner_arch=%s\n' "$RUNNER_ARCH"
+          printf 'github_run_id=%s\n' "$GITHUB_RUN_ID"
+          printf 'github_sha=%s\n' "$GITHUB_SHA"
