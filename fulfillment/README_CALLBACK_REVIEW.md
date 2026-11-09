@@ -57,6 +57,18 @@ No external HTTP calls, email, SMS, CRM updates, or payments are performed.
 
 The processor never creates a lead, invents an estimated deal value, asserts a person was never called, or infers recovered revenue.
 
+## Default review triage (not permission to contact)
+
+The processor outputs `review_priority` and sorts rows stably using these fixed **review** categories. Customers may agree on a different prioritization policy before fulfillment.
+
+- `P1`: overdue follow-up due-date records or a recorded customer reply without an assigned next action
+- `P2`: first-contact record missing or no estimate response recorded
+- `P3`: appointment confirmation missing
+- `VERIFY_DATA`: necessary data absent or invalid; do not interpret as a missed call
+- `NONE`: no current rule triggered; not proof all work was completed
+
+The priority is an operator review queue, not a score of revenue opportunity, customer importance, or legal permission to communicate. No lead is contacted automatically.
+
 ## Verification and fulfillment
 
 Run `python -m pytest -q tests/test_callback_review.py` and preserve the test report; internal fixtures are allowed for unit testing and must not appear as buyer data.
