@@ -48,6 +48,10 @@ def test_distinct_evidence_based_reasons_and_manifest(tmp_path):
     assert "ESTIMATE_RESPONSE_NOT_RECORDED" in reviewed["c"]["reason_codes"]
     assert "CUSTOMER_REPLY_NEXT_ACTION_MISSING" in reviewed["d"]["reason_codes"]
     assert reviewed["e"]["verification_status"] == "NOT_FLAGGED"
+    assert reviewed["b"]["review_priority"] == "P1"
+    assert reviewed["d"]["review_priority"] == "P1"
+    assert reviewed["a"]["review_priority"] == "P2"
+    assert output_rows(out)[0]["lead_id"] == "b"
     assert receipt["source_row_count"] == receipt["output_row_count"] == 5
     assert receipt["no_external_actions"] is True
     assert len(receipt["input_sha256"]) == len(receipt["output_sha256"]) == 64
