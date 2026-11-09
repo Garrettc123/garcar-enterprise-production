@@ -4,8 +4,9 @@ services:
     container_name: garcar-enterprise-gateway
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     environment:
+      PORT: ${PORT:-8000}
       ENVIRONMENT: production
       REQUIRE_VAULT: "true"
       VAULT_ADDR: ${VAULT_ADDR:?set VAULT_ADDR}

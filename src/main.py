@@ -1,8 +1,13 @@
+import hashlib
+import hmac
+import json
 import logging
+import time
 from contextlib import asynccontextmanager
 
 import hvac
 import stripe
+from pydantic import ValidationError
 from stripe import SignatureVerificationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -15,6 +20,7 @@ from .payouts import record_verified_payout
 log = logging.getLogger("garcar")
 cfg = settings()
 vault_data: dict = {}
+
 
 def _vault_client() -> hvac.Client:
     client = hvac.Client(url=cfg.vault_addr)
@@ -32,21 +38,95 @@ def _vault_client() -> hvac.Client:
         raise RuntimeError("Vault authentication failed")
     return client
 
+
 def webhook_secret() -> str:
     secret = vault_data.get("STRIPE_WEBHOOK_SECRET", "")
     if not secret and cfg.environment != "production":
         secret = cfg.stripe_webhook_secret
     return secret
 
+
+def permit_ingest_secret() -> str:
+    secret = vault_data.get("PERMIT_INGEST_HMAC_SECRET", "")
+    if not secret and cfg.environment != "production":
+        secret = cfg.permit_ingest_hmac_secret
+    return secret if isinstance(secret, str) else ""
+
+
+async def read_limited_body(request: Request, limit: int = 1_048_576) -> bytes:
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            declared_length = int(content_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length") from exc
+        if declared_length < 0:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length")
+        if declared_length > limit:
+            raise HTTPException(status_code=413, detail="Permit payload exceeds 1 MiB")
+
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > limit:
+            raise HTTPException(status_code=413, detail="Permit payload exceeds 1 MiB")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def verify_permit_signature(
+    payload: bytes,
+    timestamp_header: str,
+    signature_header: str,
+    secret: str,
+    *,
+    now: int | None = None,
+) -> bool:
+    if len(secret.encode("utf-8")) < 32 or not timestamp_header or not signature_header:
+        return False
+    if not signature_header.startswith("sha256="):
+        return False
+    try:
+        timestamp = int(timestamp_header)
+    except (TypeError, ValueError):
+        return False
+    current_time = int(time.time()) if now is None else now
+    if abs(current_time - timestamp) > cfg.permit_ingest_tolerance_seconds:
+        return False
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        str(timestamp).encode("ascii") + b"." + payload,
+        hashlib.sha256,
+    ).hexdigest()
+    supplied = signature_header.removeprefix("sha256=")
+    if len(supplied) != 64:
+        return False
+    return hmac.compare_digest(expected, supplied)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global vault_data
     if cfg.require_vault:
         client = _vault_client()
-        response = client.secrets.kv.v2.read_secret_version(mount_point=cfg.vault_mount, path=cfg.vault_path)
+        response = client.secrets.kv.v2.read_secret_version(
+            mount_point=cfg.vault_mount, path=cfg.vault_path
+        )
         vault_data = response["data"]["data"]
-        if cfg.environment == "production" and not vault_data.get("STRIPE_WEBHOOK_SECRET"):
-            raise RuntimeError("Production Stripe webhook signing secret is missing from Vault")
+        if cfg.environment == "production":
+            required = ("STRIPE_WEBHOOK_SECRET", "PERMIT_INGEST_HMAC_SECRET")
+            missing = [name for name in required if not vault_data.get(name)]
+            if missing:
+                raise RuntimeError(
+                    "Required production webhook secrets are missing from Vault: "
+                    + ", ".join(missing)
+                )
+            permit_secret = vault_data["PERMIT_INGEST_HMAC_SECRET"]
+            if not isinstance(permit_secret, str) or len(permit_secret.encode("utf-8")) < 32:
+                raise RuntimeError(
+                    "PERMIT_INGEST_HMAC_SECRET must contain at least 32 UTF-8 bytes"
+                )
     else:
         if cfg.environment == "production":
             raise RuntimeError("Vault cannot be disabled in production")
@@ -54,33 +134,82 @@ async def lifespan(app: FastAPI):
     yield
     vault_data = {}
 
-app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.2.0", lifespan=lifespan)
+
+app = FastAPI(
+    title="Garcar Enterprise Immutable Wealth Machine",
+    version="0.3.0",
+    lifespan=lifespan,
+)
+
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "environment": cfg.environment, "execution_mode": "guarded"}
+    return {
+        "status": "ok",
+        "environment": cfg.environment,
+        "execution_mode": "guarded",
+    }
+
 
 @app.post("/webhook/permits/dfw")
-async def ingest_permit(permit: PermitInput):
+async def ingest_permit(request: Request):
+    secret = permit_ingest_secret()
+    if not secret:
+        raise HTTPException(
+            status_code=503, detail="Permit webhook authentication is not configured"
+        )
+
+    payload = await read_limited_body(request)
+
+    timestamp = request.headers.get("x-garcar-timestamp", "")
+    signature = request.headers.get("x-garcar-signature", "")
+    if not verify_permit_signature(payload, timestamp, signature, secret):
+        raise HTTPException(status_code=401, detail="Invalid or expired permit signature")
+
+    try:
+        permit = PermitInput.model_validate_json(payload)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail="Invalid permit payload") from exc
+
     record = {"event_type": "PERMIT_INGESTED", **permit.model_dump()}
     try:
-        ledger = seal_record(record, cfg.s3_ledger_bucket, cfg.aws_region, cfg.ledger_retention_days)
+        ledger = seal_record(
+            record, cfg.s3_ledger_bucket, cfg.aws_region, cfg.ledger_retention_days
+        )
     except LedgerError as exc:
-        raise HTTPException(status_code=503, detail="Ledger unavailable; request not processed") from exc
-    return {"status": "recorded", "ledger": ledger, "decision": evaluate_permit(permit)}
+        raise HTTPException(
+            status_code=503, detail="Ledger unavailable; request not processed"
+        ) from exc
+    return {
+        "status": "recorded",
+        "ledger": ledger,
+        "decision": evaluate_permit(permit),
+    }
+
 
 @app.post("/webhook/payouts")
 async def stripe_payout_webhook(request: Request):
     secret = webhook_secret()
     if not secret:
-        raise HTTPException(status_code=503, detail="Stripe webhook verification is not configured")
+        raise HTTPException(
+            status_code=503, detail="Stripe webhook verification is not configured"
+        )
     payload = await request.body()
     signature = request.headers.get("stripe-signature", "")
     try:
         event = stripe.Webhook.construct_event(payload, signature, secret)
-        result = record_verified_payout(event, bucket=cfg.s3_ledger_bucket, region=cfg.aws_region, retention_days=cfg.ledger_retention_days)
+        result = record_verified_payout(
+            event,
+            bucket=cfg.s3_ledger_bucket,
+            region=cfg.aws_region,
+            retention_days=cfg.ledger_retention_days,
+        )
     except (ValueError, SignatureVerificationError) as exc:
-        raise HTTPException(status_code=400, detail="Invalid webhook payload or signature") from exc
+        raise HTTPException(
+            status_code=400, detail="Invalid webhook payload or signature"
+        ) from exc
     except LedgerError as exc:
-        raise HTTPException(status_code=503, detail="Ledger unavailable; webhook not acknowledged") from exc
+        raise HTTPException(
+            status_code=503, detail="Ledger unavailable; webhook not acknowledged"
+        ) from exc
     return JSONResponse({"status": "received", "ledger": result})
