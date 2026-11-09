@@ -29,7 +29,7 @@ TIMESTAMP_COLUMNS = frozenset({"inquiry_at"}) | frozenset(
     c for c in OPTIONAL_COLUMNS if c.endswith("_at")
 )
 OUTPUT_COLUMNS = [
-    "lead_id", "assigned_owner", "verification_status", "reason_codes",
+    "lead_id", "assigned_owner", "review_priority", "verification_status", "reason_codes",
     "callback_reasons", "source_fields", "suggested_next_action",
     "priority_basis", "source_row_sha256",
 ]
@@ -71,6 +71,7 @@ def review_row(row: dict[str, str], columns: set[str], as_of: datetime) -> dict[
         return {
             "lead_id": lead_id,
             "assigned_owner": clean.get("assigned_owner", ""),
+            "review_priority": "VERIFY_DATA",
             "verification_status": "UNVERIFIED",
             "reason_codes": "INVALID_TIMESTAMP",
             "callback_reasons": "Cannot classify reliably: timestamp missing offset or invalid in " + ", ".join(invalid),
@@ -84,6 +85,7 @@ def review_row(row: dict[str, str], columns: set[str], as_of: datetime) -> dict[
         return {
             "lead_id": lead_id,
             "assigned_owner": clean.get("assigned_owner", ""),
+            "review_priority": "VERIFY_DATA",
             "verification_status": "UNVERIFIED",
             "reason_codes": "INVALID_INQUIRY_TIME",
             "callback_reasons": "Inquiry timestamp absent or after review as-of time",
@@ -109,6 +111,7 @@ def review_row(row: dict[str, str], columns: set[str], as_of: datetime) -> dict[
         return {
             "lead_id": lead_id,
             "assigned_owner": clean.get("assigned_owner", ""),
+            "review_priority": "P1" if any(e[0] in {"OVERDUE_FOLLOWUP_RECORDED", "CUSTOMER_REPLY_NEXT_ACTION_MISSING"} for e in evidence) else ("P2" if any(e[0] in {"ESTIMATE_RESPONSE_NOT_RECORDED", "FIRST_CONTACT_NOT_RECORDED"} for e in evidence) else "P3"),
             "verification_status": "RECORD_GAP",
             "reason_codes": "|".join(e[0] for e in evidence),
             "callback_reasons": " | ".join(e[1] for e in evidence),
@@ -130,6 +133,7 @@ def review_row(row: dict[str, str], columns: set[str], as_of: datetime) -> dict[
     return {
         "lead_id": lead_id,
         "assigned_owner": clean.get("assigned_owner", ""),
+        "review_priority": "VERIFY_DATA" if status == "UNVERIFIED" else "NONE",
         "verification_status": status,
         "reason_codes": reason_code,
         "callback_reasons": reason,
@@ -176,6 +180,10 @@ def review_csv(input_csv: Path, output_csv: Path, as_of: datetime) -> dict:
             raise ReviewInputError("Lead IDs must be present and unique")
         seen.add(lead_id)
         results.append(review_row(row, set(columns), as_of))
+
+    # Deterministic review priority only; never authorizes contacting a lead.
+    rank = {"P1": 0, "P2": 1, "P3": 2, "VERIFY_DATA": 3, "NONE": 4}
+    results.sort(key=lambda result: rank[result["review_priority"]])
 
     output_buffer = io.StringIO(newline="")
     writer = csv.DictWriter(output_buffer, fieldnames=OUTPUT_COLUMNS, lineterminator="\n")
