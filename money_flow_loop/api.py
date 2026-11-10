@@ -36,7 +36,10 @@ class CloseLoopRequest(BaseModel):
 
 @router.post("/ingest")
 def ingest_attention(payload: AttentionIngest, db: Session = Depends(get_db)):
-    """Entry point: new attention arrives."""
+    """Record a lead only when real contact information is supplied."""
+    address = payload.email or (payload.metadata or {}).get("email")
+    if not isinstance(address, str) or not address.strip() or "@" not in address:
+        raise HTTPException(status_code=422, detail="A contact email is required.")
     orch = MoneyFlowOrchestrator(db)
     return orch.ingest_attention(
         source=payload.source,

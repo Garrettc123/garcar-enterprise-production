@@ -196,11 +196,15 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     logger.info(f"Stripe webhook: {event_type}")
 
     if event_type == "checkout.session.completed":
-        user_id = data.get("metadata", {}).get("user_id")
-        plan = data.get("metadata", {}).get("plan", "starter")
-        amount = data.get("amount_total", 0) / 100
+        if data.get("payment_status") != "paid":
+            logger.warning("Checkout not confirmed paid; skipping revenue recognition")
+            return {"status": "awaiting_payment_confirmation"}
 
-        if user_id:
+        user_id = (data.get("metadata") or {}).get("user_id")
+        plan = (data.get("metadata") or {}).get("plan")
+        amount = (data.get("amount_total") or 0) / 100
+
+        if user_id and plan in PLANS:
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user:
                 user.plan = plan
@@ -283,10 +287,7 @@ def _handle_checkout_completed(session: dict):
                 company_name=metadata.get("company_name", ""),
                 checkout_metadata=metadata,
                 engagement_id=f"ENG-{session_id[:8].upper()}",
-                upsell_url=os.getenv(
-                    "RECOVERY_SPRINT_URL",
-                    "https://buy.stripe.com/garcar-recovery-sprint",
-                ),
+                upsell_url=os.getenv("RECOVERY_SPRINT_URL", ""),
             )
             logger.info(f"RHNS audit complete: {result}")
         except Exception as e:
@@ -295,7 +296,7 @@ def _handle_checkout_completed(session: dict):
 
     # ── AI Growth Engine — trigger onboarding sequence ──
     ai_growth_engine_ids = set(
-        os.getenv("AI_GROWTH_ENGINE_PRODUCT_IDS", "prod_AIGrowthEngine").split(",")
+        os.getenv("AI_GROWTH_ENGINE_PRODUCT_IDS", "").split(",")
     )
     if product_ids & ai_growth_engine_ids:
         logger.info(f"AI Growth Engine purchase — triggering onboarding for {customer_email}")

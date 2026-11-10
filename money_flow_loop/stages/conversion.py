@@ -83,18 +83,10 @@ class ConversionStage:
             "triggered_at": now,
             "recommended_plan": recommended_plan,
             "checkout": checkout,
-            "money_events": [
-                {
-                    "type": "checkout_opportunity_created",
-                    "amount_cents": plan["price_cents"],
-                    "currency": "usd",
-                    "status": "pending",
-                    "plan": recommended_plan,
-                    "email": email,
-                }
-            ],
-            "next_action": "complete_stripe_checkout",
-            "status": "conversion_ready",
+            # A suggested checkout is not a Stripe session or a financial event.
+            "money_events": [],
+            "next_action": "create_authenticated_stripe_checkout",
+            "status": "checkout_not_created",
         }
 
         logger.info(
