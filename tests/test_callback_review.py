@@ -136,3 +136,23 @@ def test_owner_only_is_not_activity_evidence(tmp_path):
     write_csv(inp, ["lead_id", "inquiry_at", "assigned_owner"], [{"lead_id": "A", "inquiry_at": "2026-11-01T12:00:00Z", "assigned_owner": "X"}])
     review_csv(inp, out, AS_OF)
     assert output_rows(out)[0]["reason_codes"] == "ACTIVITY_COLUMNS_MISSING"
+
+
+def test_spreadsheet_formula_injection_is_neutralized(tmp_path):
+    inp, out = tmp_path / "in.csv", tmp_path / "out.csv"
+    values = ["=2+2", "+SUM(1,2)", "-1+2", "@SUM(1,2)", "Normal"]
+    write_csv(inp, ["lead_id", "inquiry_at", "assigned_owner"],
+              [{"lead_id": f"L{i}", "inquiry_at": "2026-11-01T12:00:00Z", "assigned_owner": v}
+               for i, v in enumerate(values)])
+    review_csv(inp, out, AS_OF)
+    owners = [r["assigned_owner"] for r in output_rows(out)]
+    assert owners == ["'" + x for x in values[:4]] + ["Normal"]
+    assert json.loads(Path(str(out) + ".manifest.json").read_text())["source_row_count"] == 5
+
+
+def test_spreadsheet_formula_lead_ids_are_escaped(tmp_path):
+    inp, out = tmp_path / "in.csv", tmp_path / "out.csv"
+    write_csv(inp, ["lead_id", "inquiry_at"],
+              [{"lead_id": "=3+4", "inquiry_at": "2026-11-01T12:00:00Z"}])
+    review_csv(inp, out, AS_OF)
+    assert output_rows(out)[0]["lead_id"] == "'=3+4"
