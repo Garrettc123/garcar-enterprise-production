@@ -35,6 +35,16 @@ OUTPUT_COLUMNS = [
 ]
 
 
+def spreadsheet_safe(value: str) -> str:
+    """Prevent buyer-controlled CSV cells from being interpreted as formulas.
+
+    Prefix with a literal apostrophe only when a spreadsheet might treat the
+    content as a formula. The original buyer row remains unchanged for hashing.
+    """
+    candidate = value.lstrip(" \t\r\n\f\v\ufeff")
+    return "'" + value if candidate.startswith(("=", "+", "-", "@")) else value
+
+
 class ReviewInputError(ValueError):
     """A buyer export cannot be safely classified without correction."""
 
@@ -188,7 +198,8 @@ def review_csv(input_csv: Path, output_csv: Path, as_of: datetime) -> dict:
     output_buffer = io.StringIO(newline="")
     writer = csv.DictWriter(output_buffer, fieldnames=OUTPUT_COLUMNS, lineterminator="\n")
     writer.writeheader()
-    writer.writerows(results)
+    for record in results:
+        writer.writerow({field: spreadsheet_safe(record[field]) for field in OUTPUT_COLUMNS})
     output_bytes = output_buffer.getvalue().encode("utf-8")
     manifest = {
         "rules_version": RULES_VERSION,
