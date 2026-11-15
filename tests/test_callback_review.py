@@ -156,3 +156,11 @@ def test_spreadsheet_formula_lead_ids_are_escaped(tmp_path):
               [{"lead_id": "=3+4", "inquiry_at": "2026-11-01T12:00:00Z"}])
     review_csv(inp, out, AS_OF)
     assert output_rows(out)[0]["lead_id"] == "'=3+4"
+
+
+def test_input_size_rejected_before_processing(tmp_path):
+    inp, out = tmp_path / "oversized.csv", tmp_path / "review.csv"
+    inp.write_bytes(b"x" * 2_000_001)
+    with pytest.raises(ReviewInputError, match="2 MB"):
+        review_csv(inp, out, AS_OF)
+    assert not out.exists()
