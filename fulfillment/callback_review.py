@@ -18,6 +18,7 @@ from pathlib import Path
 
 RULES_VERSION = "callback-review-v1"
 MAX_ROWS = 50
+MAX_INPUT_BYTES = 2_000_000
 REQUIRED_COLUMNS = frozenset({"lead_id", "inquiry_at"})
 OPTIONAL_COLUMNS = frozenset({
     "first_contact_at", "last_contact_at", "followup_due_at",
@@ -166,7 +167,10 @@ def review_csv(input_csv: Path, output_csv: Path, as_of: datetime) -> dict:
     if as_of.tzinfo is None or as_of.utcoffset() is None:
         raise ReviewInputError("Review as-of time must include a timezone offset")
     as_of = as_of.astimezone(timezone.utc)
-    data = input_csv.read_bytes()
+    with input_csv.open("rb") as stream:
+        data = stream.read(MAX_INPUT_BYTES + 1)
+    if len(data) > MAX_INPUT_BYTES:
+        raise ReviewInputError("Input exceeds 2 MB review limit")
     try:
         reader = csv.DictReader(io.StringIO(data.decode("utf-8-sig"), newline=""), strict=True)
         columns = reader.fieldnames or []
