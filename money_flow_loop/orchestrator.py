@@ -106,7 +106,9 @@ class MoneyFlowOrchestrator:
 
         result = handler(prospect_id)
         result["loop_id"] = self.loop_id
-        result["advanced_to"] = target_stage.value
+        result["attempted_stage"] = target_stage.value
+        if result.get("status") not in ("evidence_unavailable", "not_provisioned", "not_configured"):
+            result["advanced_to"] = target_stage.value
         result["timestamp"] = datetime.now(timezone.utc).isoformat()
 
         logger.info(
@@ -168,8 +170,8 @@ class MoneyFlowOrchestrator:
             "customer_id": customer_id,
             "advocacy_assets": advocacy,
             "new_attention_seeded": len(new_leads),
-            "loop_status": "closed_and_amplified",
-            "message": "Customer success has been converted into new acquisition fuel.",
+            "loop_status": "not_amplified_without_verification",
+            "message": "Customer claims are quarantined pending independent verification and consent.",
         }
 
     def health(self) -> Dict[str, Any]:
@@ -177,7 +179,7 @@ class MoneyFlowOrchestrator:
         return {
             "loop_id": self.loop_id,
             "started_at": self.started_at.isoformat(),
-            "status": "organism_alive",
+            "status": "initialized_unverified",
             "stages": [s.value for s in LoopStage],
-            "message": "Real money flow loop is operational.",
+            "message": "Controller initialized; no live customer or payment activity is asserted.",
         }
