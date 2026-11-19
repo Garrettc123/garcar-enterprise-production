@@ -1,13 +1,6 @@
 name: Deploy Cloudflare Lead Capture Worker
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "workers/lead-capture.js"
-      - "wrangler.toml"
-      - ".github/workflows/cloudflare-worker-deploy.yml"
   workflow_dispatch:
 
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.
@@ -18,9 +11,12 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 10
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_WORKER_HEALTH_URL: ${{ vars.CLOUDFLARE_WORKER_HEALTH_URL }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       HF_SCORER_URL: ${{ secrets.HF_SCORER_URL }}
@@ -33,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_ACCOUNT_ID SUPABASE_URL SUPABASE_ANON_KEY HF_SCORER_URL; do
+          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN SUPABASE_URL SUPABASE_ANON_KEY HF_SCORER_URL CLOUDFLARE_WORKER_HEALTH_URL; do
             if [ -z "${!name:-}" ]; then
               echo "Missing required GitHub Actions secret: $name" >&2
               exit 1
@@ -64,6 +60,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          WORKER_URL="https://garcar-lead-capture.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
-          echo "Worker deployment completed. Verify the public hostname in Cloudflare if this account uses a custom workers.dev routing configuration."
-          echo "Expected health endpoint: ${WORKER_URL}/health"
+          # Do not construct a workers.dev hostname from the Cloudflare account ID.
+          # GitHub's production environment must define the deployed health URL.
+          case "$CLOUDFLARE_WORKER_HEALTH_URL" in
+            https://*) ;;
+            *) echo "::error::CLOUDFLARE_WORKER_HEALTH_URL must use HTTPS"; exit 1;;
+          esac
+          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 \
+            --connect-timeout 10 --max-time 30 --output /dev/null \
+            "$CLOUDFLARE_WORKER_HEALTH_URL"
+          echo "Cloudflare Worker health endpoint returned HTTP success"
