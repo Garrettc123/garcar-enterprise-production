@@ -38,11 +38,9 @@ jobs:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
 
       - name: Wait for deployment
-        if: env.skip != 'true'
         run: sleep 30
 
       - name: Health check
-        if: env.skip != 'true'
         run: |
           for i in {1..12}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL%/}/health" || true)
