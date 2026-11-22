@@ -1,8 +1,6 @@
 name: Deploy GARCAR Backend
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 # Least privilege: the token gets nothing by default; each job asks only for what it needs.
@@ -13,22 +11,25 @@ jobs:
     permissions: {} 
     runs-on: ubuntu-latest
     name: Deploy to Render
+    environment: production
+    timeout-minutes: 10
 
     steps:
       - name: Check required secrets
         run: |
           if [ -z "$RENDER_DEPLOY_HOOK" ]; then
-            echo "RENDER_DEPLOY_HOOK secret is not set — skipping deploy."
-            echo "skip=true" >> "$GITHUB_ENV"
-            exit 0
-          else
-            echo "skip=false" >> "$GITHUB_ENV"
+            echo "::error::RENDER_DEPLOY_HOOK secret is missing"
+            exit 1
+          fi
+          if [ -z "$API_URL" ]; then
+            echo "::error::API_URL secret is missing; a deployment cannot be verified"
+            exit 1
           fi
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          API_URL: ${{ secrets.API_URL }}
 
       - name: Trigger Render deploy
-        if: env.skip != 'true'
         run: |
           curl -X POST "$RENDER_DEPLOY_HOOK" \
             --fail --silent --show-error
@@ -37,18 +38,12 @@ jobs:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
 
       - name: Wait for deployment
-        if: env.skip != 'true'
         run: sleep 30
 
       - name: Health check
-        if: env.skip != 'true'
         run: |
-          if [ -z "$API_URL" ]; then
-            echo "API_URL secret is not set — skipping health check."
-            exit 0
-          fi
           for i in {1..12}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/health" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL%/}/health" || true)
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "GARCAR API is live at $API_URL"
@@ -57,7 +52,7 @@ jobs:
             fi
             sleep 15
           done
-          echo "Health check timed out — deploy may still be in progress"
-          exit 0
+          echo "::error::Render health check failed; deployment remains unverified"
+          exit 1
         env:
           API_URL: ${{ secrets.API_URL }}
