@@ -18,7 +18,13 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      # The root and backend each have dependency manifests. The shared tests
+      # import backend/payments.py and database.py, so the backend requirements
+      # must be installed before root pins are restored for the main suite.
+      - name: Install backend test dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Install root test dependencies
+        run: pip install -r requirements.txt
       - run: pytest -q
       - run: python -m compileall -q src tests
   dependency-audit:

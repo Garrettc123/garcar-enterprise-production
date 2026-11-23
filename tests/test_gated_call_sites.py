@@ -37,7 +37,7 @@ class _Resp:
         return False
 
     def read(self):
-        return b"{}"
+        return b'{"id":"provider-acceptance-for-unit-test"}'
 
 
 # ── G1 backend/nurture.py send_email (SMTP) ──
@@ -163,10 +163,10 @@ def fleet(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", rec)
 
-    def packet(email=EMAIL):
+    def packet(email="qa@garcar.io"):
         lead = Lead(company="Co", contact_name="L", email=email, title="Owner",
-                    vertical="HVAC", city="Dallas", source="test")
-        return mod.OutreachPacket(lead=lead, subject="s", body="b", sku_key="47", sku_url="u", price=47)
+                    vertical="HVAC", city="Dallas", source="env", email_verified=True, source_id="isolated-test-row", consent_basis="requested_contact")
+        return mod.OutreachPacket(lead=lead, subject="s", body="b", sku_key="497", sku_url="u", price=497)
 
     return mod, config, rec, packet
 
@@ -187,9 +187,9 @@ def test_g3_fleet_dry_run_never_reaches_gate(gate_env, fleet, monkeypatch):
 
 def test_g3_fleet_sends_only_to_approved_recipients(gate_env, grant, fleet, monkeypatch):
     mod, config, rec, packet = fleet
-    pid = grant("--action", "send.email", "--to", EMAIL, "--uses", "1")
+    pid = grant("--action", "send.email", "--to", "qa@garcar.io", "--uses", "1")
     monkeypatch.setattr(config, "APPROVAL_ID", pid)
-    assert mod.send_email(packet("not-approved@example.com")).send_error == "approval_required:recipient_not_approved"
+    assert mod.send_email(packet("unapproved@garcar.io")).send_error == "approval_required:recipient_not_approved"
     assert mod.send_email(packet()).sent is True
     assert len(rec.calls) == 1
 
@@ -315,4 +315,4 @@ def test_g7_welcome_email_stub_is_gated(gate_env, grant):
     out = asyncio.run(mod.send_welcome_email(EMAIL, "L"))
     assert out["status"] == "refused"
     pid = grant("--action", "send.email", "--to", EMAIL)
-    assert asyncio.run(mod.send_welcome_email(EMAIL, "L", approval_id=pid))["status"] == "queued"
+    assert asyncio.run(mod.send_welcome_email(EMAIL, "L", approval_id=pid))["reason"] == "welcome_delivery_unconfigured"

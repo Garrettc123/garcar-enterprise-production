@@ -1,16 +1,13 @@
-"""Lead source for the Sales Fleet.
-
-Uses:
-1. Seed ICP list (always available — no key required)
-2. Optional Apollo when APOLLO_API_KEY is set
-3. Optional env FLEET_LEAD_JSON for operator-pasted lists
-"""
+"""Read operator-supplied lead records and optional Apollo account research."""
 from __future__ import annotations
 
 import json
 import os
+import re
+import urllib.error
+import urllib.request
 from dataclasses import asdict, dataclass
-from typing import List, Optional
+from typing import Optional
 
 from . import config
 
@@ -26,126 +23,105 @@ class Lead:
     source: str
     score: float = 0.0
     notes: str = ""
+    source_id: str = ""
+    email_verified: bool = False
+    consent_basis: str = ""
+
+    @property
+    def eligible_for_outreach(self) -> bool:
+        return bool(self.source_id and self.email_verified and usable_email(self.email or "")
+                    and self.consent_basis in {"requested_contact", "existing_customer", "documented_opt_in"})
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-# Seed ICP — DFW / North Texas trades. Expand via Apollo or paste list.
-SEED_LEADS: List[Lead] = [
-    Lead("Summit Roofing TX", "Marcus", None, "Owner", "roofing", "Fort Worth", "seed"),
-    Lead("Bluebonnet HVAC", "Elena", None, "Owner", "HVAC", "Arlington", "seed"),
-    Lead("Lone Star Plumbing Co", "Derek", None, "President", "plumbing", "Dallas", "seed"),
-    Lead("Cleburne Electric Pros", "James", None, "Founder", "electrical", "Cleburne", "seed"),
-    Lead("Grandview GC Partners", "Ryan", None, "Principal", "general contractor", "Grandview", "seed"),
-    Lead("DFW Air & Heat", "Sofia", None, "GM", "HVAC", "Irving", "seed"),
-    Lead("Trinity Valley Roofing", "Chris", None, "Owner", "roofing", "Waxahachie", "seed"),
-    Lead("North Texas Drain & Pipe", "Luis", None, "Owner", "plumbing", "Denton", "seed"),
-    Lead("Metroplex Build Group", "Amanda", None, "VP Operations", "general contractor", "Plano", "seed"),
-    Lead("Hill Country HVAC South", "Kevin", None, "Owner", "HVAC", "Burleson", "seed"),
-]
+def field(row: dict, key: str) -> str:
+    value = row.get(key)
+    return value.strip() if isinstance(value, str) else ""
 
 
-def load_env_leads() -> List[Lead]:
+def usable_email(value: str) -> bool:
+    if not re.fullmatch(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+", value):
+        return False
+    local, domain = value.lower().split("@")
+    reserved = {"example.com", "example.org", "example.net", "email_not_unlocked.com"}
+    return not (any(domain == item or domain.endswith("." + item) for item in reserved) or domain.endswith((".test", ".invalid", ".example", ".localhost", ".internal"))
+                or (domain == "garcar.io" and local.startswith("atlas+")))
+
+
+def load_env_leads() -> list[Lead]:
     raw = os.getenv("FLEET_LEAD_JSON", "").strip()
     if not raw:
         return []
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
-    out: List[Lead] = []
-    for row in data if isinstance(data, list) else []:
-        if not isinstance(row, dict):
+    data = json.loads(raw)
+    if not isinstance(data, list) or any(not isinstance(row, dict) for row in data):
+        raise ValueError("FLEET_LEAD_JSON must contain an array of records")
+    suppressed = {field(row, "email").lower() for row in data
+                  if row.get("suppressed") or row.get("do_not_contact")}
+    leads = []
+    for row in data:
+        company = field(row, "company")
+        if not company or any(row.get(k) for k in ("synthetic", "is_test", "mock", "demo", "suppressed", "do_not_contact")):
             continue
-        out.append(
-            Lead(
-                company=str(row.get("company") or "Unknown"),
-                contact_name=str(row.get("contact_name") or row.get("name") or "there"),
-                email=row.get("email"),
-                title=str(row.get("title") or "Owner"),
-                vertical=str(row.get("vertical") or "HVAC"),
-                city=str(row.get("city") or "DFW"),
-                source="env",
-            )
-        )
-    return out
+        if field(row, "source").lower() in {"seed", "test", "mock", "demo", "synthetic", "fixture", "fake", "sample"}:
+            continue
+        email = field(row, "email").lower()
+        if email and email in suppressed:
+            continue
+        source_id = field(row, "source_id") or field(row, "source_url")
+        leads.append(Lead(
+            company=company, contact_name=field(row, "contact_name") or field(row, "name"),
+            email=email if usable_email(email) else None, title=field(row, "title"),
+            vertical=field(row, "vertical"), city=field(row, "city"), source="env",
+            consent_basis=field(row, "consent_basis").lower(),
+            source_id=source_id, email_verified=field(row, "email_status").lower() == "verified",
+        ))
+    return leads
 
 
-def fetch_apollo_leads(limit: int = 20) -> List[Lead]:
-    api_key = os.getenv("APOLLO_API_KEY", "").strip()
-    if not api_key:
+def fetch_apollo_leads(limit: int = 20) -> list[Lead]:
+    key = os.getenv("APOLLO_API_KEY", "").strip()
+    if not key or limit < 1:
         return []
+    payload = {"person_titles": config.ICP_TITLES, "person_locations": ["Texas"],
+               "q_organization_keyword_tags": config.ICP_VERTICALS, "page": 1, "per_page": min(limit, 100)}
+    req = urllib.request.Request("https://api.apollo.io/api/v1/mixed_people/api_search",
+                                 data=json.dumps(payload).encode(), method="POST",
+                                 headers={"X-Api-Key": key, "Content-Type": "application/json"})
     try:
-        import requests
-    except ImportError:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            people = json.load(resp)["people"]
+    except (OSError, KeyError, ValueError, TypeError) as exc:
+        raise RuntimeError("Apollo lead search unavailable") from exc
+    if not isinstance(people, list):
+        raise ValueError("Apollo returned an invalid list of people")
+    leads = []
+    for person in people:
+        org = person.get("organization") or {}
+        if field(org, "name") and field(person, "id"):
+            leads.append(Lead(field(org, "name"), field(person, "first_name"), None,
+                              field(person, "title"), field(org, "industry"), field(person, "city"),
+                              "apollo", source_id=field(person, "id")))
+    return leads
+
+
+def source_leads(limit: int | None = None) -> list[Lead]:
+    limit = config.MAX_LEADS_PER_RUN if limit is None else limit
+    if limit <= 0:
         return []
-    url = "https://api.apollo.io/v1/mixed_people/search"
-    payload = {
-        "q_organization_keyword_tags": ["HVAC", "roofing", "plumbing", "general contractor"],
-        "person_titles": config.ICP_TITLES,
-        "person_locations": ["Texas", "Dallas", "Fort Worth"],
-        "page": 1,
-        "per_page": min(limit, 25),
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        "X-Api-Key": api_key,
-    }
-    try:
-        r = requests.post(url, json=payload, headers=headers, timeout=20)
-        if r.status_code >= 400:
-            return []
-        people = (r.json() or {}).get("people") or []
-    except Exception:
-        return []
-    out: List[Lead] = []
-    for p in people:
-        org = p.get("organization") or {}
-        email = p.get("email")
-        if email and str(email).endswith("email_not_unlocked.com"):
-            email = None
-        out.append(
-            Lead(
-                company=str(org.get("name") or "Unknown Co"),
-                contact_name=str(
-                    (p.get("first_name") or "") + " " + (p.get("last_name") or "")
-                ).strip()
-                or "there",
-                email=email,
-                title=str(p.get("title") or "Owner"),
-                vertical=_guess_vertical(org.get("name") or "", p.get("headline") or ""),
-                city=str((p.get("city") or org.get("city") or "Texas")),
-                source="apollo",
-            )
-        )
-    return out
-
-
-def _guess_vertical(name: str, headline: str) -> str:
-    blob = f"{name} {headline}".lower()
-    for v in config.ICP_VERTICALS:
-        if v.lower() in blob:
-            return v
-    return "HVAC"
-
-
-def source_leads(limit: int | None = None) -> List[Lead]:
-    limit = limit or config.MAX_LEADS_PER_RUN
-    leads: List[Lead] = []
-    leads.extend(load_env_leads())
-    leads.extend(fetch_apollo_leads(limit=limit))
-    if len(leads) < limit:
-        leads.extend(SEED_LEADS)
+    unique = []
     seen = set()
-    unique: List[Lead] = []
-    for lead in leads:
-        key = (lead.company.lower().strip(), lead.contact_name.lower().strip())
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(lead)
-        if len(unique) >= limit:
-            break
+    def collect(records):
+        for lead in records:
+            identity = lead.email or lead.source_id or lead.contact_name.casefold()
+            key = (lead.company.casefold(), identity)
+            if key not in seen:
+                seen.add(key)
+                unique.append(lead)
+                if len(unique) == limit:
+                    break
+    collect(load_env_leads())
+    if len(unique) < limit:
+        collect(fetch_apollo_leads(limit - len(unique)))
     return unique

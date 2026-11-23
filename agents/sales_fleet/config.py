@@ -4,11 +4,7 @@ from __future__ import annotations
 import os
 
 # Live commercial surface (reconcile with operator if prices change this hour)
-STOREFRONT = os.getenv("GARCAR_STOREFRONT", "https://garrettc123.github.io/")
-SKU_47 = os.getenv(
-    "GARCAR_SKU_47",
-    "https://buy.stripe.com/dRm8wPbb72pY2Mz8BR43S1D",
-)  # Contractor Lead Leak Audit
+STOREFRONT = os.getenv("GARCAR_STOREFRONT", "https://garcar-customer-acquisition-production.up.railway.app/")
 SKU_497 = os.getenv(
     "GARCAR_SKU_497",
     "https://buy.stripe.com/8x2eVddjf0hQ86Tf0f43S2h",
@@ -21,12 +17,11 @@ SKU_2500 = os.getenv(
 # Payments control plane (webhook fixed 2026-09-19)
 PAYMENTS_BASE = os.getenv(
     "GARCAR_PAYMENTS_URL",
-    "https://garcar-payments.garrettc123.workers.dev",
+    "https://garcar-emergency-payments-production.up.railway.app",
 )
 
-DEFAULT_SKU = os.getenv("GARCAR_DEFAULT_SKU", "47")  # 47 | 497 | 2500
+DEFAULT_SKU = os.getenv("GARCAR_DEFAULT_SKU", "497")  # 497 | 2500
 SKU_MAP = {
-    "47": {"url": SKU_47, "label": "Contractor Lead Leak Audit", "price": 47},
     "497": {"url": SKU_497, "label": "Lead Export Review", "price": 497},
     "2500": {"url": SKU_2500, "label": "Lead Backup Callback Clock", "price": 2500},
 }
@@ -58,13 +53,13 @@ DRY_RUN = os.getenv("FLEET_DRY_RUN", "true").lower() in ("1", "true", "yes")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 # GAR-530: Garrett-issued send.email approval (python -m approval_gate.cli grant ...)
 APPROVAL_ID = os.getenv("FLEET_APPROVAL_ID", "")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "Garrett at Garcar <garrett@garcar.io>")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "Garrett at Garcar <gwc2780@gmail.com>")
 LEDGER_PATH = os.getenv("FLEET_LEDGER_PATH", "agents/sales_fleet/fleet_ledger.json")
 
-# Outreach voice (from operator skill — Texas trades, not VC)
-OUTREACH_TEMPLATE = """Hey {first_name} — I'm Garrett in Grandview. I write the 48-hour map of where Texas {vertical} shops lose jobs after the lead hits. First response gap is usually the money. ${price}, delivered to your email. If the map is wrong you say so.
+# The implementation requires scoping before checkout.
+OUTREACH_TEMPLATE = """Hello {first_name},
 
-{sku_url}
+I can review one recent lead export and return a callback list with the reason for each priority. The review is ${price}. Details: {sku_url}
 
-— Garrett
-"""
+Garrett Carrol
+Garcar Enterprise"""
