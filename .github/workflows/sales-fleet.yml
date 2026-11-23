@@ -38,12 +38,12 @@ jobs:
 
       - name: Storefront + payments edge must be up
         run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garrettc123.github.io/" || echo "000")
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garcar-customer-acquisition-production.up.railway.app/" || echo "000")
           echo "Storefront HTTP $code"
-          pay=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garcar-payments.garrettc123.workers.dev/health" || echo "000")
+          pay=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://garcar-emergency-payments-production.up.railway.app/health" || echo "000")
           echo "Payments edge HTTP $pay"
-          if [ "$code" != "200" ]; then
-            echo "::error::Storefront down — abort fleet"
+          if [ "$code" != "200" ] || [ "$pay" != "200" ]; then
+            echo "::error::Storefront or payment health unavailable — abort fleet"
             exit 1
           fi
 
@@ -73,7 +73,7 @@ jobs:
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
           FLEET_LEAD_JSON: ${{ secrets.FLEET_LEAD_JSON }}
-          GARCAR_PAYMENTS_URL: https://garcar-payments.garrettc123.workers.dev
+          GARCAR_PAYMENTS_URL: https://garcar-emergency-payments-production.up.railway.app
           PYTHONPATH: .
           FLEET_APPROVAL_ID: ${{ github.event.inputs.approval_id }}
           APPROVALS_PATH: ${{ runner.temp }}/approvals/approvals.jsonl

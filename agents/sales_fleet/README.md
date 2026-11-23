@@ -1,50 +1,7 @@
 # Autonomous Sales Fleet
 
-Five agents. One job: **move attention into paid strangers.**
+Run the read-only planning path with `python -m agents.sales_fleet.fleet --sku 497 --limit 10`. The GitHub workflow supports manual dispatch. The $2,500 installation is scope-first.
 
-| Agent | Job |
-|-------|-----|
-| Scout | Source ICP leads (seed + optional Apollo + env paste) |
-| Scorer | Rank by title / geo / email presence |
-| Outreacher | Personalize Texas-trades copy |
-| Closer | Attach live Stripe SKU link; optional Resend send |
-| Watcher | Confirm `garcar-payments` edge is healthy (webhook path) |
+Supply operator records through `FLEET_LEAD_JSON` or use optional Apollo People Search. Without either source the fleet reports zero leads. Apollo search provides research records. Draft eligibility requires a company, usable email, verified email status, source ID or source URL, a documented consent basis (requested contact, existing customer or opt-in), and the configured fit threshold. Explicitly suppressed and test-tagged rows are excluded. Missing optional title, location and industry stay empty.
 
-## Run locally
-
-```bash
-# Dry-run (default) — generates outreach packets, does not send
-PYTHONPATH=. python -m agents.sales_fleet.fleet --sku 47 --limit 10
-
-# Live send (requires RESEND_API_KEY + real emails)
-FLEET_DRY_RUN=false RESEND_API_KEY=re_... PYTHONPATH=. python -m agents.sales_fleet.fleet --sku 47 --live
-```
-
-## Env
-
-| Var | Purpose |
-|-----|---------|
-| `FLEET_DRY_RUN` | `true` (default) or `false` |
-| `FLEET_MAX_LEADS` | Cap per cycle (default 25) |
-| `FLEET_MIN_SCORE` | Outreach threshold (default 55) |
-| `GARCAR_DEFAULT_SKU` | `47` / `497` / `2500` |
-| `RESEND_API_KEY` | Required for live email |
-| `EMAIL_FROM` | Sender |
-| `APOLLO_API_KEY` | Optional lead source |
-| `FLEET_LEAD_JSON` | JSON array of leads |
-| `GARCAR_PAYMENTS_URL` | Edge health check |
-
-## Revenue path
-
-```
-Fleet outreach → stranger clicks SKU link → Stripe Checkout
-  → /stripe-webhook (edge, signature verified, queue)
-  → fulfillment job → entitlement + email
-```
-
-Webhook abort-on-missing-trace_id was fixed 2026-09-19. Cash can land.
-
-## GitHub Action
-
-`.github/workflows/sales-fleet.yml` runs on schedule + manual dispatch.
-Default is dry-run. Set secrets + live input only when ready to send.
+Live email requires an explicit live run, a healthy payment endpoint, a configured sender and a recipient-bound GAR-530 approval. A provider acceptance ID is recorded on successful submission. It does not establish inbox delivery or a sale.

@@ -212,6 +212,11 @@ async function loadDashboard() {
 }
 
 // ── Product: Deal Desk ──
+function optionalNumber(id) {
+  const value = document.getElementById(id).value.trim();
+  return value === '' ? null : Number(value);
+}
+
 async function analyzeDeal(e) {
   e.preventDefault();
   const btn = document.getElementById('dd-btn');
@@ -223,25 +228,24 @@ async function analyzeDeal(e) {
       method: 'POST',
       body: {
         company_name: document.getElementById('dd-company').value,
-        deal_size: parseFloat(document.getElementById('dd-size').value) || null,
+        deal_size: optionalNumber('dd-size'),
         stage: document.getElementById('dd-stage').value,
         notes: document.getElementById('dd-notes').value || null,
       },
     });
 
-    const gradeClass = `grade-${data.grade.toLowerCase()}`;
+
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4)">
-        <div class="grade-badge ${gradeClass}">${data.grade}</div>
+
         <div>
           <h4 style="margin:0">${data.company}</h4>
-          <span class="result-label">Score: ${data.score}/100 — ${data.win_probability} win probability</span>
+          <span class="result-label">Stage progression: ${data.score == null ? "Unknown" : data.score + "/100"}</span>
         </div>
       </div>
       <div class="result-grid">
         <div><span class="result-label">Stage:</span> ${data.stage}</div>
-        <div><span class="result-label">Deal Size:</span> $${(data.deal_size || 0).toLocaleString()}</div>
-        <div><span class="result-label">Est. Close:</span> ${data.estimated_close_days} days</div>
+        <div><span class="result-label">Deal Size:</span> ${data.deal_size == null ? "Unknown" : "$" + data.deal_size.toLocaleString()}</div>
         <div><span class="result-label">Usage:</span> ${data.usage.used}/${data.usage.limit}</div>
       </div>
       <h4>Recommended Actions</h4>
@@ -282,10 +286,8 @@ async function generateSEO(e) {
     panel.innerHTML = `
       <h4>${c.title}</h4>
       <div class="result-grid">
-        <div><span class="result-label">SEO Score:</span> <span class="result-value">${c.seo_score}/100</span></div>
-        <div><span class="result-label">Readability:</span> <span class="result-value">${c.readability_score}/100</span></div>
         <div><span class="result-label">Slug:</span> <code>/${c.slug}</code></div>
-        <div><span class="result-label">Words:</span> ${c.estimated_word_count}</div>
+        <div><span class="result-label">Target words:</span> ${c.estimated_word_count}</div>
       </div>
       <p style="margin:var(--space-3) 0"><span class="result-label">Meta:</span> ${c.meta_description}</p>
       <h4 style="margin-top:var(--space-4)">Content Outline</h4>
@@ -314,28 +316,28 @@ async function predictChurn(e) {
       method: 'POST',
       body: {
         customer_id: document.getElementById('ch-id').value,
-        monthly_spend: parseFloat(document.getElementById('ch-spend').value) || null,
-        days_since_login: parseInt(document.getElementById('ch-days').value) || null,
-        support_tickets: parseInt(document.getElementById('ch-tickets').value) || null,
-        feature_usage_pct: parseFloat(document.getElementById('ch-usage').value) || null,
+        monthly_spend: optionalNumber('ch-spend'),
+        days_since_login: optionalNumber('ch-days'),
+        support_tickets: optionalNumber('ch-tickets'),
+        feature_usage_pct: optionalNumber('ch-usage'),
       },
     });
 
     const riskClass = `risk-${data.risk_level}`;
     panel.innerHTML = `
       <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4)">
-        <div class="grade-badge ${data.risk_level === 'critical' ? 'grade-d' : data.risk_level === 'medium' ? 'grade-c' : 'grade-a'}">${data.churn_risk_pct}%</div>
+        <div class="grade-badge ${data.risk_level === 'critical' ? 'grade-d' : data.risk_level === 'medium' ? 'grade-c' : 'grade-a'}">${data.flagged_signals} flagged</div>
         <div>
           <h4 style="margin:0">Customer: ${data.customer_id}</h4>
-          <span class="result-label ${riskClass}">Risk Level: ${data.risk_level.toUpperCase()}</span>
+          <span class="result-label ${riskClass}">Review priority: ${data.risk_level.toUpperCase()}</span>
         </div>
       </div>
       <h4>Risk Factors</h4>
       <div class="result-grid">
-        <div><span class="result-label">Login Recency:</span> <span class="${data.factors.login_recency === 'high_risk' ? 'risk-critical' : 'risk-low'}">${data.factors.login_recency}</span></div>
-        <div><span class="result-label">Support Load:</span> <span class="${data.factors.support_load === 'high_risk' ? 'risk-critical' : 'risk-low'}">${data.factors.support_load}</span></div>
-        <div><span class="result-label">Feature Adoption:</span> <span class="${data.factors.feature_adoption === 'low' ? 'risk-critical' : 'risk-low'}">${data.factors.feature_adoption}</span></div>
-        <div><span class="result-label">Revenue at Risk:</span> ${data.factors.revenue_risk}</div>
+        <div><span class="result-label">Login Recency:</span> <span class="${data.factors.login_recency === 'flagged' ? 'risk-critical' : 'risk-low'}">${data.factors.login_recency}</span></div>
+        <div><span class="result-label">Support Load:</span> <span class="${data.factors.support_load === 'flagged' ? 'risk-critical' : 'risk-low'}">${data.factors.support_load}</span></div>
+        <div><span class="result-label">Feature Adoption:</span> <span class="${data.factors.feature_adoption === 'flagged' ? 'risk-critical' : 'risk-low'}">${data.factors.feature_adoption}</span></div>
+        <div><span class="result-label">Reported monthly spend:</span> ${data.factors.revenue_risk}</div>
       </div>
       <h4>Retention Playbook</h4>
       <ul class="result-list">${data.recommended_actions.map(a => `<li>${a}</li>`).join('')}</ul>

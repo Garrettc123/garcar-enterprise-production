@@ -42,11 +42,10 @@ class AttentionStage:
         now = datetime.now(timezone.utc)
         meta = metadata or {}
 
-        # Prefer real email; fall back to a trackable synthetic only if needed
-        lead_email = email or meta.get("email")
-        if not lead_email:
-            # Still create a record so the loop can progress; mark clearly
-            lead_email = f"prospect-{prospect_uuid[:8]}@garcar.internal"
+        # Require an actual supplied address; never create fabricated leads.
+        lead_email = (email or meta.get("email") or "").strip()
+        if not lead_email or "@" not in lead_email:
+            raise ValueError("A contact email is required; no lead was created.")
 
         lead_name = meta.get("name") or meta.get("full_name") or None
 
@@ -113,18 +112,11 @@ class AttentionStage:
         """
         seeds = []
 
-        if advocacy_assets.get("case_study"):
-            seeds.append(
-                self.capture(
-                    source="advocacy_case_study",
-                    metadata={
-                        "case_study_id": advocacy_assets["case_study"].get("id"),
-                        "customer_roi": advocacy_assets.get("roi"),
-                    },
-                )
-            )
+        # Case studies are not contact records; do not fabricate leads from them.
 
         for referral in advocacy_assets.get("referrals", []):
+            if not referral.get("email") or not referral.get("consent_granted"):
+                continue
             seeds.append(
                 self.capture(
                     source="customer_referral",

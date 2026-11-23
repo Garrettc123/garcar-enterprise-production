@@ -2,10 +2,9 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, timezone
-import random
 import logging
 
 from database import get_db
@@ -67,8 +66,8 @@ def log_usage(user: User, endpoint: str, tokens: int, db: Session):
 
 class DealAnalysisRequest(BaseModel):
     company_name: str
-    deal_size: Optional[float] = None
-    stage: Optional[str] = "discovery"
+    deal_size: Optional[float] = Field(None, ge=0, allow_inf_nan=False)
+    stage: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -80,34 +79,30 @@ def analyze_deal(
 ):
     used, limit = check_usage(user, "deal_desk", db)
 
-    # Score the deal (production would use ML model)
-    base_score = random.randint(40, 95)
-    stage_bonus = {"discovery": 0, "qualification": 10, "proposal": 20, "negotiation": 30, "closed_won": 50}.get(
-        req.stage, 0
-    )
-    size_bonus = min(15, int((req.deal_size or 0) / 10000)) if req.deal_size else 0
-    score = min(100, base_score + stage_bonus + size_bonus)
+    stages = ["discovery", "qualification", "proposal", "negotiation", "closed_won"]
+    stage_actions = {
+        "discovery": "Document the buyer's goal",
+        "qualification": "Confirm decision maker and timeline",
+        "proposal": "Review the proposal with the buyer",
+        "negotiation": "Resolve outstanding terms",
+        "closed_won": "Confirm the delivery handoff",
+    }
+    index = stages.index(req.stage) if req.stage in stages else None
+    score = index * 25 if index is not None else None
+    actions = [stage_actions.get(req.stage, "Confirm the current deal stage")]
 
-    # Generate action items
-    actions = []
-    if score < 50:
-        actions = ["Schedule discovery call", "Research company pain points", "Prepare ROI analysis"]
-    elif score < 75:
-        actions = ["Send case study", "Schedule demo with decision maker", "Prepare pricing proposal"]
-    else:
-        actions = ["Send contract", "Schedule implementation kickoff", "Introduce to CS team"]
-
-    log_usage(user, "deal_desk", 1, db)
+    log_usage(user, "deal_desk", 0, db)
 
     return {
         "company": req.company_name,
         "score": score,
-        "grade": "A" if score >= 80 else "B" if score >= 60 else "C" if score >= 40 else "D",
+        "grade": None,
+        "score_basis": "position_in_five_reported_stages",
         "stage": req.stage,
         "deal_size": req.deal_size,
         "recommended_actions": actions,
-        "win_probability": f"{score}%",
-        "estimated_close_days": max(7, 90 - score),
+        "win_probability": None,
+        "estimated_close_days": None,
         "usage": {"used": used + 1, "limit": limit},
     }
 
@@ -118,7 +113,7 @@ class SEORequest(BaseModel):
     topic: str
     keywords: Optional[list[str]] = None
     tone: Optional[str] = "professional"
-    word_count: Optional[int] = 800
+    word_count: int = Field(800, gt=0, le=100000)
 
 
 @router.post("/seo-factory/generate")
@@ -134,7 +129,7 @@ def generate_seo_content(
     # Generate content structure (production would use LLM)
     content = {
         "title": f"The Complete Guide to {req.topic}",
-        "meta_description": f"Learn everything about {req.topic}. Expert insights, actionable strategies, and proven frameworks for {keywords[0]}.",
+        "meta_description": f"Learn everything about {req.topic}. An outline covering {keywords[0]}.",
         "slug": req.topic.lower().replace(" ", "-").replace("'", ""),
         "outline": [
             {"h2": f"What is {req.topic}?", "word_count": 150},
@@ -145,15 +140,19 @@ def generate_seo_content(
         ],
         "target_keywords": keywords,
         "estimated_word_count": req.word_count,
-        "seo_score": random.randint(75, 98),
-        "readability_score": random.randint(70, 95),
+        "seo_score": None,
+        "readability_score": None,
     }
 
-    log_usage(user, "seo_factory", req.word_count or 800, db)
+    per_section, remainder = divmod(req.word_count, len(content["outline"]))
+    for index, section in enumerate(content["outline"]):
+        section["word_count"] = per_section + int(index < remainder)
+
+    log_usage(user, "seo_factory", 0, db)
 
     return {
         "content": content,
-        "status": "generated",
+        "status": "outline_generated",
         "usage": {"used": used + 1, "limit": limit},
     }
 
@@ -162,10 +161,10 @@ def generate_seo_content(
 
 class ChurnRequest(BaseModel):
     customer_id: str
-    monthly_spend: Optional[float] = None
-    days_since_login: Optional[int] = None
-    support_tickets: Optional[int] = None
-    feature_usage_pct: Optional[float] = None
+    monthly_spend: Optional[float] = Field(None, ge=0)
+    days_since_login: Optional[int] = Field(None, ge=0)
+    support_tickets: Optional[int] = Field(None, ge=0)
+    feature_usage_pct: Optional[float] = Field(None, ge=0, le=100)
 
 
 @router.post("/churn-predictor/predict")
@@ -176,53 +175,33 @@ def predict_churn(
 ):
     used, limit = check_usage(user, "churn_predictor", db)
 
-    # Churn model (production would use trained ML model)
-    risk = 20.0  # base risk
-    if req.days_since_login and req.days_since_login > 14:
-        risk += min(30, req.days_since_login * 1.5)
-    if req.support_tickets and req.support_tickets > 3:
-        risk += min(20, req.support_tickets * 4)
-    if req.feature_usage_pct is not None and req.feature_usage_pct < 30:
-        risk += 25
-    if req.monthly_spend and req.monthly_spend < 50:
-        risk += 10
-    risk = min(99, max(1, risk + random.uniform(-5, 5)))
-
-    # Retention playbook
-    if risk > 70:
-        actions = [
-            "Immediate outreach — schedule a call within 24 hours",
-            "Offer 20% discount or plan upgrade trial",
-            "Assign dedicated CSM",
-        ]
-        urgency = "critical"
-    elif risk > 40:
-        actions = [
-            "Send re-engagement email with new feature highlights",
-            "Offer onboarding refresh session",
-            "Share relevant case studies",
-        ]
-        urgency = "medium"
+    observed = {
+        "login_recency": None if req.days_since_login is None else req.days_since_login > 14,
+        "support_load": None if req.support_tickets is None else req.support_tickets > 3,
+        "feature_adoption": None if req.feature_usage_pct is None else req.feature_usage_pct < 30,
+    }
+    signals = sum(value is True for value in observed.values())
+    if signals:
+        urgency = "critical" if signals > 1 else "medium"
+        actions = ["Review the flagged usage or support signals with the account owner"]
+    elif None in observed.values():
+        urgency = "unknown"
+        actions = ["Collect missing login, usage or support data"]
     else:
-        actions = [
-            "Continue regular check-ins",
-            "Share product updates newsletter",
-            "Invite to customer community",
-        ]
         urgency = "low"
+        actions = ["Continue regular account reviews"]
+    factors = {key: "unknown" if value is None else "flagged" if value else "within threshold"
+               for key, value in observed.items()}
+    factors["revenue_risk"] = "unknown" if req.monthly_spend is None else f"${req.monthly_spend:,.2f}/mo"
 
-    log_usage(user, "churn_predictor", 1, db)
+    log_usage(user, "churn_predictor", 0, db)
 
     return {
         "customer_id": req.customer_id,
-        "churn_risk_pct": round(risk, 1),
+        "churn_risk_pct": None,
         "risk_level": urgency,
-        "factors": {
-            "login_recency": "high_risk" if (req.days_since_login or 0) > 14 else "ok",
-            "support_load": "high_risk" if (req.support_tickets or 0) > 3 else "ok",
-            "feature_adoption": "low" if (req.feature_usage_pct or 100) < 30 else "healthy",
-            "revenue_risk": f"${req.monthly_spend or 0:.0f}/mo",
-        },
+        "flagged_signals": signals,
+        "factors": factors,
         "recommended_actions": actions,
         "retention_playbook": urgency,
         "usage": {"used": used + 1, "limit": limit},

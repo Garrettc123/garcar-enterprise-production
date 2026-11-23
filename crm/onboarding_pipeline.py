@@ -88,14 +88,7 @@ async def send_welcome_email(client_email: str, client_name: str, approval_id: s
                          site="crm.onboarding_pipeline.send_welcome_email")
     except ApprovalRequired as exc:
         return {"status": "refused", "to": client_email, "reason": f"approval_required:{exc.reason}"}
-    # Implementation: use your preferred email service
-    # Placeholder returns success for webhook flow
-    return {
-        "status": "queued",
-        "to": client_email,
-        "template": "garcar-welcome",
-        "note": "Configure SMTP_HOST, SMTP_USER, SMTP_PASS env vars for live sending",
-    }
+    return {"status": "blocked", "reason": "welcome_delivery_unconfigured"}
 
 
 @app.post("/webhook/onboard")
@@ -107,7 +100,7 @@ async def onboard_webhook(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    if event["type"] != "payment_intent.succeeded":
+    if event["type"] != "payment_intent.succeeded" or event.get("livemode") is not True:
         return {"status": "ignored"}
 
     pi = event["data"]["object"]
@@ -120,7 +113,7 @@ async def onboard_webhook(request: Request):
     email_result = await send_welcome_email(client_email, client_name)
 
     return {
-        "status": "onboarded",
+        "status": "incomplete",
         "client": client_name,
         "email": client_email,
         "amount": amount,
