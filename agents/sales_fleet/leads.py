@@ -1,9 +1,10 @@
 """Lead source for the Sales Fleet.
 
 Uses:
-1. Seed ICP list (always available — no key required)
-2. Optional Apollo when APOLLO_API_KEY is set
-3. Optional env FLEET_LEAD_JSON for operator-pasted lists
+1. Optional Apollo when APOLLO_API_KEY is set
+2. Optional env FLEET_LEAD_JSON for operator-provided leads
+
+No sample or fabricated leads are injected when data sources are empty.
 """
 from __future__ import annotations
 
@@ -31,19 +32,6 @@ class Lead:
         return asdict(self)
 
 
-# Seed ICP — DFW / North Texas trades. Expand via Apollo or paste list.
-SEED_LEADS: List[Lead] = [
-    Lead("Summit Roofing TX", "Marcus", None, "Owner", "roofing", "Fort Worth", "seed"),
-    Lead("Bluebonnet HVAC", "Elena", None, "Owner", "HVAC", "Arlington", "seed"),
-    Lead("Lone Star Plumbing Co", "Derek", None, "President", "plumbing", "Dallas", "seed"),
-    Lead("Cleburne Electric Pros", "James", None, "Founder", "electrical", "Cleburne", "seed"),
-    Lead("Grandview GC Partners", "Ryan", None, "Principal", "general contractor", "Grandview", "seed"),
-    Lead("DFW Air & Heat", "Sofia", None, "GM", "HVAC", "Irving", "seed"),
-    Lead("Trinity Valley Roofing", "Chris", None, "Owner", "roofing", "Waxahachie", "seed"),
-    Lead("North Texas Drain & Pipe", "Luis", None, "Owner", "plumbing", "Denton", "seed"),
-    Lead("Metroplex Build Group", "Amanda", None, "VP Operations", "general contractor", "Plano", "seed"),
-    Lead("Hill Country HVAC South", "Kevin", None, "Owner", "HVAC", "Burleson", "seed"),
-]
 
 
 def load_env_leads() -> List[Lead]:
@@ -136,8 +124,6 @@ def source_leads(limit: int | None = None) -> List[Lead]:
     leads: List[Lead] = []
     leads.extend(load_env_leads())
     leads.extend(fetch_apollo_leads(limit=limit))
-    if len(leads) < limit:
-        leads.extend(SEED_LEADS)
     seen = set()
     unique: List[Lead] = []
     for lead in leads:
