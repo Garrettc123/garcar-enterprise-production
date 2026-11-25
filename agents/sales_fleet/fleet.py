@@ -12,6 +12,7 @@ from approval_gate import ApprovalRequired, require_approval  # GAR-530
 
 from . import config
 from .leads import Lead, source_leads
+from .suppression import suppression_reason
 
 
 @dataclass
@@ -100,12 +101,15 @@ def build_outreach(lead: Lead, sku_key: str | None = None) -> OutreachPacket:
 
 def send_email(packet: OutreachPacket) -> OutreachPacket:
     """Send via Resend when key present and not dry-run. Else leave as ready."""
+    # Fail before the approval gate or any network call for bounced, suppressed,
+    # missing, or malformed recipients. Holds also apply to dry-run previews.
+    reason = suppression_reason(packet.lead.email)
+    if reason is not None:
+        packet.send_error = reason
+        return packet
     if config.DRY_RUN:
         packet.sent = False
         packet.send_error = "dry_run"
-        return packet
-    if not packet.lead.email:
-        packet.send_error = "no_email"
         return packet
     if not config.RESEND_API_KEY:
         packet.send_error = "resend_not_configured"
