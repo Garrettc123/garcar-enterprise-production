@@ -12,7 +12,7 @@ import hashlib
 import os
 import re
 
-_EMAIL = re.compile(r"^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+_EMAIL = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}$")
 
 # Nine unique recipient addresses from Gmail delivery-failure notifications
 # dated 2026-10-29 through 2026-11-22. Duplicate failures are counted once.
