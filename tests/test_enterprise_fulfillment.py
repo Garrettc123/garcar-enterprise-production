@@ -53,6 +53,21 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(BadHandoff):
             parse_handoff(b"x" * 32769, "pi_fixture_only")
 
+class MigrationPrivacyTests(unittest.TestCase):
+    def test_failed_migration_never_logs_database_url(self):
+        from contextlib import redirect_stderr
+        from io import StringIO
+        from enterprise import migrate as migration
+        err = StringIO()
+        with patch.object(migration, "migrate",
+                          side_effect=RuntimeError("postgresql://user:supersecret@host/db")):
+            with redirect_stderr(err):
+                code = migration.main()
+        self.assertEqual(code, 1)
+        self.assertNotIn("supersecret", err.getvalue())
+        self.assertNotIn("postgresql://", err.getvalue())
+
+
 class APITests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
