@@ -22,12 +22,20 @@ CREATE TABLE IF NOT EXISTS fulfillment_receipts (
 class PayloadConflict(Exception):
     pass
 
+def _normalize_dsn(url: str) -> str:
+    # Railway may provide SQLAlchemy driver syntax; psycopg.connect needs libpq URL syntax.
+    # Normalize only the scheme. Do not log, quote, or otherwise expose credentials.
+    if url.startswith("postgresql+psycopg://"):
+        return "postgresql://" + url[len("postgresql+psycopg://"):]
+    return url
+
+
 def connect():
     import psycopg
     url = os.environ.get("DATABASE_URL", "")
     if not url:
         raise RuntimeError("DATABASE_URL unavailable")
-    return psycopg.connect(url, connect_timeout=5)
+    return psycopg.connect(_normalize_dsn(url), connect_timeout=5)
 
 def migrate():
     with connect() as db:
