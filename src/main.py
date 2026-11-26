@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import hvac
@@ -11,6 +12,7 @@ from .config import settings
 from .ledger import LedgerError, seal_record
 from .orchestrator import PermitInput, evaluate_permit
 from .payouts import record_verified_payout
+from .governance.router import router as governance_router, configure_runtime_secrets, db_connection
 
 log = logging.getLogger("garcar")
 cfg = settings()
@@ -45,20 +47,48 @@ async def lifespan(app: FastAPI):
         client = _vault_client()
         response = client.secrets.kv.v2.read_secret_version(mount_point=cfg.vault_mount, path=cfg.vault_path)
         vault_data = response["data"]["data"]
-        if cfg.environment == "production" and not vault_data.get("STRIPE_WEBHOOK_SECRET"):
-            raise RuntimeError("Production Stripe webhook signing secret is missing from Vault")
+        configure_runtime_secrets(vault_data)
+        if cfg.environment == "production":
+            required = ["STRIPE_WEBHOOK_SECRET"]
+            if os.getenv("ENABLE_GOVERNANCE_DB", "false").lower() == "true":
+                required.extend(("GARCAR_AGENT_API_KEYS", "GARCAR_OWNER_API_KEY", "GARCAR_EXECUTION_SIGNING_KEY"))
+            missing = [name for name in required if not vault_data.get(name)]
+            if missing:
+                raise RuntimeError("Required production secrets missing from Vault: " + ", ".join(missing))
     else:
         if cfg.environment == "production":
             raise RuntimeError("Vault cannot be disabled in production")
         vault_data = {}
-    yield
-    vault_data = {}
+        configure_runtime_secrets({})
+    try:
+        yield
+    finally:
+        vault_data = {}
+        configure_runtime_secrets({})
 
-app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Garcar Enterprise Immutable Wealth Machine", version="0.3.0", lifespan=lifespan)
+
+# Governance endpoints are opt-in; do not expose them when the database migration gate is disabled.
+if os.getenv("ENABLE_GOVERNANCE_DB", "false").lower() == "true":
+    app.include_router(governance_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "environment": cfg.environment, "execution_mode": "guarded"}
+    response = {"status": "ok", "environment": cfg.environment, "execution_mode": "guarded"}
+    if os.getenv("ENABLE_GOVERNANCE_DB", "false").lower() == "true":
+        try:
+            with db_connection() as conn:
+                migration = conn.execute(
+                    "SELECT 1 FROM enterprise_schema_migrations WHERE version='001_governance_core'"
+                ).fetchone()
+                if not migration:
+                    raise HTTPException(status_code=503, detail="Governance database migration is not applied")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Governance database readiness check failed") from exc
+        response["governance_database"] = "connected"
+    return response
 
 @app.post("/webhook/permits/dfw")
 async def ingest_permit(permit: PermitInput):
