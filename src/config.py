@@ -1,9 +1,12 @@
 from functools import lru_cache
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, extra="ignore")
+
     environment: str = "development"
     vault_addr: str = "http://127.0.0.1:8200"
     vault_token: str = ""
@@ -15,7 +18,10 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     ledger_retention_days: int = Field(default=365, ge=1, le=36500)
     stripe_webhook_secret: str = ""
+    permit_ingest_hmac_secret: str = ""
+    permit_ingest_tolerance_seconds: int = Field(default=300, ge=30, le=900)
     require_vault: bool = True
+
 
 @lru_cache
 def settings() -> Settings:

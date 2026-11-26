@@ -40,7 +40,7 @@ Garrett Carrol · gwc2780@gmail.com · Grandview / Kopperl, TX
 This branch contains a guarded implementation candidate. It is not a production deployment, compliance certification, live GraphRAG connection, or authorization for autonomous financial activity.
 
 ## Implemented foundation
-- FastAPI permit-ingress endpoint.
+- FastAPI permit-ingress endpoint protected by timestamped HMAC-SHA256 signatures; rejects missing, expired, malformed, and oversized requests before ledger writes.
 - Vault-backed runtime secret retrieval with token or AWS IAM authentication.
 - Fail-closed startup when Vault is required; production cannot disable Vault.
 - Canonical JSON and SHA-256 ledger fingerprints.
@@ -49,7 +49,7 @@ This branch contains a guarded implementation candidate. It is not a production 
 - Stripe webhook signature verification before payout-event recording.
 - Payout records retain integer minor units and event identifiers.
 - Permit decisions default to REVIEW_REQUIRED; no invented contractor ratings or automatic approval.
-- Container runs non-root, read-only, with dropped Linux capabilities.
+- Container runs non-root, read-only, with dropped Linux capabilities; the server and health check honor the platform-provided `PORT` (local default `8000`).
 - CI runs unit tests, dependency audit and Terraform validation.
 
 ## Deliberately disabled
@@ -76,9 +76,10 @@ terraform -chdir=terraform validate
 2. Review and apply Terraform using an authorized AWS deployment identity.
 3. Configure an IAM workload role restricted to the ledger bucket and encryption key.
 4. Configure Vault AWS IAM auth or a short-lived Vault token and attach `vault/policies/app-policy.hcl`.
-5. Store the Stripe endpoint signing secret at `secret/garcar/production/keys` as `STRIPE_WEBHOOK_SECRET`.
-6. Set `S3_LEDGER_BUCKET`, `AWS_REGION`, `VAULT_ADDR`, and the selected Vault authentication settings in the runtime.
-7. Test against isolated AWS and Stripe test resources, then verify alerting, backups, retention and incident response.
-8. Require passing CI and a reviewed deployment plan before production traffic.
+5. Store `STRIPE_WEBHOOK_SECRET` and a cryptographically random `PERMIT_INGEST_HMAC_SECRET` (at least 32 bytes) at `secret/garcar/production/keys`.
+6. Sign permit requests as HMAC-SHA256 over `<unix_timestamp>.<raw_request_body>`; send `X-Garcar-Timestamp` and `X-Garcar-Signature: sha256=<hex_digest>`. The default replay window is 300 seconds.
+7. Set `S3_LEDGER_BUCKET`, `AWS_REGION`, `VAULT_ADDR`, and the selected Vault authentication settings in the runtime.
+8. Test against isolated AWS and Stripe test resources, then verify alerting, backups, retention and incident response.
+9. Require passing CI and a reviewed deployment plan before production traffic.
 
 **No cloud resources are created by CI.** Terraform validation is not a Terraform apply. S3 Object Lock COMPLIANCE retention is intentionally irreversible for the configured retention window; review retention and legal requirements before provisioning.
