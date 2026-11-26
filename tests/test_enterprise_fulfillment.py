@@ -17,6 +17,18 @@ def sample():
             "fulfill_hours": 48}
 def body(obj):
     return json.dumps(obj).encode("utf-8")
+class DSNTests(unittest.TestCase):
+    def test_sqlalchemy_url_is_only_scheme_normalized(self):
+        from enterprise.db import _normalize_dsn
+        input_dsn = "postgresql+psycopg://user:masked@postgres.railway.internal:5432/railway"
+        self.assertEqual(
+            _normalize_dsn(input_dsn),
+            "postgresql://user:masked@postgres.railway.internal:5432/railway",
+        )
+        self.assertEqual(_normalize_dsn("postgresql://user:masked@host/db"),
+                         "postgresql://user:masked@host/db")
+
+
 class ContractTests(unittest.TestCase):
     def test_valid_payload(self):
         msg, digest = parse_handoff(body(sample()), "pi_fixture_only")
