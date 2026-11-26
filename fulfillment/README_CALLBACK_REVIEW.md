@@ -2,7 +2,7 @@
 
 **Status:** Review-branch implementation. No customer production delivery has been verified.
 **Offering:** One $497 Lead Follow-Up Review using buyer-owned, explicitly authorized records.
-**Scope:** Up to 50 rows from one CSV; no outbound action, customer contact, or CRM write.
+**Scope:** Up to 500 rows from one CSV; no outbound action, customer contact, or CRM write.
 
 ## Privacy and source authorization
 
@@ -45,6 +45,14 @@ The operator sets both paths explicitly. The output file must not exist already;
 
 No external HTTP calls, email, SMS, CRM updates, or payments are performed.
 
+Verify the generated review and local checksum manifest before human QA:
+
+```bash
+python -m fulfillment.verify_review --input "$AUTHORIZED_LEAD_EXPORT" --output "$REVIEW_OUTPUT_CSV" --manifest "$REVIEW_OUTPUT_CSV.manifest.json"
+```
+
+This verifier detects byte changes, schema mismatches, count inconsistencies, and status-count mismatches. It is a local consistency check, not an independent digital signature or proof of buyer authorization. The dedicated `Callback Review Evidence CI` workflow runs both review and verifier tests on relevant pull requests.
+
 ## Review rules
 
 - `FIRST_CONTACT_NOT_RECORDED`: supplied `first_contact_at` column exists but has no entry.
@@ -82,7 +90,7 @@ Record separately (outside GitHub): the confirmed Stripe payment identifier, cus
 ## Hold / stop conditions
 
 - Missing buyer authorization or required fields.
-- 0 or more than 50 rows.
+- 0 or more than 500 rows.
 - Duplicate/blank lead IDs.
 - Invalid activity timestamps making a row unverifiable.
 - Output file exists or secure storage cannot be ensured.
