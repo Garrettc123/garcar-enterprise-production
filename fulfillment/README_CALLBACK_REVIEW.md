@@ -45,6 +45,14 @@ The operator sets both paths explicitly. The output file must not exist already;
 
 No external HTTP calls, email, SMS, CRM updates, or payments are performed.
 
+Verify the generated review and local checksum manifest before human QA:
+
+```bash
+python -m fulfillment.verify_review --input "$AUTHORIZED_LEAD_EXPORT" --output "$REVIEW_OUTPUT_CSV" --manifest "$REVIEW_OUTPUT_CSV.manifest.json"
+```
+
+This verifier detects byte changes, schema mismatches, count inconsistencies, and status-count mismatches. It is a local consistency check, not an independent digital signature or proof of buyer authorization. The dedicated `Callback Review Evidence CI` workflow runs both review and verifier tests on relevant pull requests.
+
 ## Review rules
 
 - `FIRST_CONTACT_NOT_RECORDED`: supplied `first_contact_at` column exists but has no entry.
