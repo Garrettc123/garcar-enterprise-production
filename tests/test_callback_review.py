@@ -91,13 +91,26 @@ def test_malformed_time_is_not_classified_as_overdue(tmp_path):
     assert row["reason_codes"] == "INVALID_TIMESTAMP"
 
 
-@pytest.mark.parametrize("row_count", [0, 51])
+@pytest.mark.parametrize("row_count", [0, 501])
 def test_empty_or_oversized_export_rejected(tmp_path, row_count):
     inp, out = tmp_path / "in.csv", tmp_path / "out.csv"
     write_csv(inp, ["lead_id", "inquiry_at"], [{"lead_id": f"L{i}", "inquiry_at": "2026-11-01T12:00:00Z"} for i in range(row_count)])
     with pytest.raises(ReviewInputError):
         review_csv(inp, out, AS_OF)
     assert not out.exists()
+
+
+def test_500_row_boundary_accepts_authorized_format(tmp_path):
+    """Internal boundary fixture; never represented as a buyer delivery."""
+    inp, out = tmp_path / "in.csv", tmp_path / "out.csv"
+    rows = [{"lead_id": f"internal-{i:03d}", "inquiry_at": "2026-11-01T12:00:00Z"}
+            for i in range(500)]
+    write_csv(inp, ["lead_id", "inquiry_at"], rows)
+    receipt = review_csv(inp, out, AS_OF)
+    assert receipt["source_row_count"] == receipt["output_row_count"] == 500
+    assert receipt["rules_version"] == "callback-review-v2"
+    assert len(output_rows(out)) == 500
+    assert receipt["status_counts"] == {"UNVERIFIED": 500}
 
 
 def test_duplicate_id_rejected_without_output(tmp_path):
