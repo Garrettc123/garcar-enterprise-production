@@ -1,0 +1,33 @@
+name: Callback Review Evidence CI
+on:
+  pull_request:
+    paths:
+      - 'fulfillment/**'
+      - 'tests/test_callback_review.py'
+      - 'tests/test_verify_review.py'
+      - '.github/workflows/callback-review-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'fulfillment/**'
+      - 'tests/test_callback_review.py'
+      - 'tests/test_verify_review.py'
+permissions:
+  contents: read
+jobs:
+  callback-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test-only dependency
+        run: python -m pip install pytest==9.2.0
+      - name: Compile guarded review code
+        run: python -m compileall -q fulfillment tests/test_callback_review.py tests/test_verify_review.py
+      - name: Run review and integrity tests
+        run: python -m pytest -q tests/test_callback_review.py tests/test_verify_review.py
