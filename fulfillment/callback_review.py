@@ -16,8 +16,8 @@ import json
 import os
 from pathlib import Path
 
-RULES_VERSION = "callback-review-v1"
-MAX_ROWS = 50
+RULES_VERSION = "callback-review-v2"
+MAX_ROWS = 500
 MAX_INPUT_BYTES = 2_000_000
 REQUIRED_COLUMNS = frozenset({"lead_id", "inquiry_at"})
 OPTIONAL_COLUMNS = frozenset({
