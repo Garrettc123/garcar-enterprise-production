@@ -2,7 +2,7 @@
 
 **Status:** Review-branch implementation. No customer production delivery has been verified.
 **Offering:** One $497 Lead Follow-Up Review using buyer-owned, explicitly authorized records.
-**Scope:** Up to 50 rows from one CSV; no outbound action, customer contact, or CRM write.
+**Scope:** Up to 500 rows from one CSV; no outbound action, customer contact, or CRM write.
 
 ## Privacy and source authorization
 
@@ -82,7 +82,7 @@ Record separately (outside GitHub): the confirmed Stripe payment identifier, cus
 ## Hold / stop conditions
 
 - Missing buyer authorization or required fields.
-- 0 or more than 50 rows.
+- 0 or more than 500 rows.
 - Duplicate/blank lead IDs.
 - Invalid activity timestamps making a row unverifiable.
 - Output file exists or secure storage cannot be ensured.
