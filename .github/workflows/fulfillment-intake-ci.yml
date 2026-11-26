@@ -1,0 +1,32 @@
+name: Fulfillment Intake CI
+on:
+  pull_request:
+    paths:
+      - 'enterprise/**'
+      - 'Dockerfile.enterprise'
+      - 'requirements.enterprise*'
+      - 'tests/test_enterprise_fulfillment.py'
+      - '.github/workflows/fulfillment-intake-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'enterprise/**'
+      - 'Dockerfile.enterprise'
+      - 'requirements.enterprise*'
+      - 'tests/test_enterprise_fulfillment.py'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m compileall -q enterprise tests/test_enterprise_fulfillment.py
+      - run: python -m pip install -r requirements.enterprise.txt -r requirements.enterprise.test.txt
+      - run: python -m unittest discover -s tests -p test_enterprise_fulfillment.py -v
