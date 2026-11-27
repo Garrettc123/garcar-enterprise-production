@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "garcar-real-estate-intelligence"
+version = "0.2.0"
+description = "Evidence-first real estate acquisition research, underwriting, and buyer matching"
+requires-python = ">=3.11"
+dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.29,<1", "pydantic>=2.6,<3"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+
+[project.scripts]
+reos = "garcar_reos.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["garcar_reos*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+garcar_reos = ["static/*"]
