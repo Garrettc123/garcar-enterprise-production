@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "garcar-real-estate-intelligence"
-version = "0.1.0"
+version = "0.2.0"
 description = "Evidence-first real estate acquisition research, underwriting, and buyer matching"
 requires-python = ">=3.11"
 dependencies = ["fastapi>=0.110,<1", "uvicorn>=0.29,<1", "pydantic>=2.6,<3"]
@@ -21,3 +21,6 @@ include = ["garcar_reos*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+garcar_reos = ["static/*"]

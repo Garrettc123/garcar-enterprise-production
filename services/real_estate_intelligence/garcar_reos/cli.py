@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 from pydantic import ValidationError
 from .models import PropertyIn
-from .store import CaseStore, Conflict
+from .platform import PlatformStore
+from .store import Conflict
 
 REQUIRED = {"street_address", "city", "state", "postal_code", "county", "property_type",
             "asking_price", "source_url", "observed_at"}
@@ -19,7 +20,7 @@ def import_csv(path: str, db_path: str, max_rows: int = 500) -> dict:
         raise ValueError("CSV must exist and be at most 2 MB")
     if not 1 <= max_rows <= 500:
         raise ValueError("max_rows must be in 1..500")
-    s = CaseStore(db_path)
+    s = PlatformStore(db_path)
     result = {"imported": 0, "duplicates": 0, "invalid": []}
     with p.open(encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -48,13 +49,22 @@ def main():
     ip.add_argument("--max-rows", type=int, default=500)
     sub.add_parser("verify-audit")
     sub.add_parser("list-cases")
+    sub.add_parser("portfolio")
+    sub.add_parser("due-tasks")
+    sub.add_parser("revenue-summary")
     args = p.parse_args()
     if args.command == "import-csv":
         print(json.dumps(import_csv(args.path, args.db, args.max_rows), indent=2))
     elif args.command == "verify-audit":
-        print(json.dumps(CaseStore(args.db).verify_audit(), indent=2))
-    else:
-        print(json.dumps(CaseStore(args.db).list_cases(), indent=2))
+        print(json.dumps(PlatformStore(args.db).verify_audit(), indent=2))
+    elif args.command == "list-cases":
+        print(json.dumps(PlatformStore(args.db).list_cases(), indent=2))
+    elif args.command == "portfolio":
+        print(json.dumps(PlatformStore(args.db).metrics(), indent=2))
+    elif args.command == "due-tasks":
+        print(json.dumps(PlatformStore(args.db).list_tasks(due_only=True), indent=2))
+    elif args.command == "revenue-summary":
+        print(json.dumps(PlatformStore(args.db).revenue_summary(), indent=2))
 
 if __name__ == "__main__":
     main()

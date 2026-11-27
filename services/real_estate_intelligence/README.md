@@ -1,85 +1,110 @@
-# Garcar Real Estate Intelligence OS (REOS) — v0.1
+# Garcar Real Estate Intelligence OS (REOS) — v0.2
 
-**Status: research software, not a deployed acquisition business.** This is a distinct module under
-`Garrettc123/garcar-enterprise-production/services/real_estate_intelligence`.
+**A working private research-and-operations service. Not a licensed brokerage, automated wholesaler, title service, appraisal or deployed customer platform.**
 
-## Delivered, runnable capabilities
+Garcar REOS lives within `Garrettc123/garcar-enterprise-production/services/real_estate_intelligence`. It does **not** replace the Garcar Private OS governance plane, automate prohibited outbound outreach or assume live investor revenue.
 
-- Evidence-first property intake with source URL, observed timestamp, deduplication and strict fields.
-- Deterministic, configurable underwriting: cost-based seller acquisition cap and 70%-of-ARV heuristic cap;
-  captures assumptions and generates estimated buyer economics and headroom.
-- Source-evidence casebook, 90-day operator-reviewed evidence gate, explicit research decisions with separate approver credential.
-- Buyer-criteria matching by county, property type, and maximum acquisition amount.
-- Tamper-evident append-only-style SHA-256 audit chain; verification endpoint/command.
-- SQLite persistence, authenticated FastAPI, offline CSV intake, scoped CI tests, Dockerfile.
-- **No scraping, automatic emails/calls, offers, contracts, financial transfers, or trades.**
+## Delivered workflow (end-to-end as case tracking, not unattended transaction execution)
 
-## Install / run locally (Python 3.11+)
+`Official research links → evidence-first property intake / RHNS proposal queue → human agent-proposal review → underwriting → evidence-based research approval → qualification → 10-item due diligence checklist → human offer review → external contract tracking → external closing tracking → signed payment event reconciliation → audit.`
+
+- **Dashboard** at `/dashboard`: connected portfolio counters, casebook, property registration, source evidence, underwriting, diligence checklist, workflow transitions, task queue, agent proposals, source registry.
+- **API**: private FastAPI with an API credential, separate human approver key, separate agent key, security headers, no CORS wildcard, and disabled documentation unless explicitly enabled.
+- **Property intake**: individually or from a validated local CSV, source URL, timestamp, duplicate-address protection; no speculative listing scraper.
+- **Investment screening**: deterministic, explicit ARV, repair, holding, closing, financing, reserves, target profit, assignment fee and selling costs; independent 70% heuristic upper bound.
+- **RHNS integration surface**: typed research proposals with dedicated agent credential; **only a human approver** can accept a proposal to create a case; agents cannot approve a case or make offers.
+- **Workflow tracker**: `intake → research → qualified → diligence → offer_review → under_contract → closed`, plus disqualification. High-risk transitions require a separate approver key and external agreement/closing references; no actual signatures or notices are sent.
+- **Research gates**: fresh operator-reviewed evidence in 4 categories; fresh 10-item diligence checklist for offer review. Operator checks are assertions, not independent market or title certifications.
+- **Task workflow**: due queue, case-scoped tasks, priority, completion and blocked status; **no automated messages**.
+- **Buyer criteria matching**: manual registered organization-level criteria only, no personal contacts, purchase commitments, or cash claims.
+- **Communication drafting**: unsent, local-only drafts with no recipient address and no send endpoint.
+- **Revenue receipts**: optional Stripe `payment_intent.succeeded` signed webhook (live, REOS-tagged only). Records gross successful payment events, never claims bank settlement/profit or absence of refunds. No checkout creation or charge authorization.
+- **Audit**: transactional SQLite state, hash-chain integrity check. Hashes are internally tamper-evident, **not immutable or externally anchored**.
+
+## Local launch
+
+Python 3.11+ required. From the `services/real_estate_intelligence` directory:
 
 ```bash
-cd services/real_estate_intelligence
 python -m venv .venv
 . .venv/bin/activate
 python -m pip install -e '.[test]'
 python -m pytest -q
 export REOS_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
 export REOS_APPROVER_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export REOS_AGENT_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
 export REOS_DB_PATH="$(pwd)/data/reos.sqlite"
 uvicorn garcar_reos.api:app --host 127.0.0.1 --port 8091
 ```
 
-For isolated standalone ZIP use, run the commands from its unpacked root instead.
-`GET /health` is public and returns no property data. Every other endpoint requires `X-API-Key`.
-`POST /v1/cases/{id}/research-decision` additionally requires `X-Approver-Key`.
-Never use demo/example secrets in production. Use a managed secret store and TLS/authenticated reverse proxy
-for any remote deployment. Do not expose a Docker port publicly without a reverse proxy; Dockerfile binds to localhost.
+Open `http://127.0.0.1:8091/dashboard`. Click **Connect API key**, provide the operator key and optionally the separate approver key. Both exist only in the active browser tab memory; reload clears them. This is a *single-operator* dashboard, not a multi-tenant SaaS product.
 
-## Authenticated endpoints
+A Dockerfile is available. External deployment **requires** TLS, a private gateway or trusted identity provider, a persistent volume, independently stored credentials, request-rate limits, backups and restore verification. Do not point an unauthenticated public domain at sensitive operator data. Use `/health` for readiness checks.
 
-| Method | Route | Function |
-|---|---|---|
-| GET | `/health` | Minimal health check |
-| POST, GET | `/v1/cases` | Property intake, list |
-| GET | `/v1/cases/{id}` | Case dossier |
-| POST, GET | `/v1/cases/{id}/evidence` | Provenance documents |
-| POST | `/v1/cases/{id}/underwrite` | Calculate grounded investment limits |
-| GET | `/v1/cases/{id}/underwriting/latest` | Last saved calculation |
-| GET | `/v1/cases/{id}/readiness` | Gate evidence and calculation |
-| POST | `/v1/cases/{id}/research-decision` | Human-credential research approval/rejection |
-| POST | `/v1/buyers` | Buyer investment criteria (no direct contacts) |
-| GET | `/v1/cases/{id}/buyer-matches` | Preliminary buyer fits only |
-| GET | `/v1/audit/verify` | Verify audit sequence |
+## Core API
 
-## Offline CSV import (no synthetic leads)
+Every `/v1/*` call requires `X-API-Key`. **Never expose keys in URLs or screenshots.**
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | Public, no private data |
+| `GET /dashboard` | Static operator UI; API fetches require auth |
+| `GET /v1/sources` | Official research portals and limitations |
+| `GET/POST /v1/cases` | List and register property cases |
+| `GET /v1/cases/{id}/dossier` | Consolidated case packet for approved RHNS read-only workflows |
+| `POST /v1/cases/{id}/evidence` | Store source-backed evidence |
+| `POST /v1/cases/{id}/underwrite` | Deterministic screening |
+| `POST /v1/cases/{id}/research-decision` | Requires `X-Approver-Key` |
+| `GET/POST /v1/cases/{id}/phase` | State transitions; high-risk transitions require approval |
+| `GET/PUT /v1/cases/{id}/checklist` | Ten-item diligence evidence gates |
+| `POST/GET /v1/cases/{id}/tasks` | Operator task assignments |
+| `PATCH /v1/tasks/{task_id}` | Operator changes task status |
+| `GET /v1/tasks/due` | Pending due work (manual polling) |
+| `GET/POST /v1/cases/{id}/drafts` | Unsent notes/drafts only |
+| `POST /v1/agent-proposals` | Also requires `X-Agent-Key`; never executes proposals |
+| `GET /v1/agent-proposals` | Human review queue |
+| `POST /v1/agent-proposals/{id}/decision` | Also requires `X-Approver-Key` |
+| `POST /v1/buyers`, `GET /v1/cases/{id}/buyer-matches` | Criteria-based, noncommittal matching |
+| `GET /v1/portfolio` | Pipeline counters without fabricated revenue |
+| `GET /v1/revenue/summary` | Authenticated signed live receipt summary, no settlements |
+| `POST /integrations/stripe/webhook` | Stripe signature replaces API auth; REOS-tagged **live** PI events only |
+| `GET /v1/audit/verify` | Verify hash sequence for all recorded actions |
+
+## RHNS agent proposal format
+
+`POST /v1/agent-proposals`, headers `X-API-Key`, `X-Agent-Key`:
+
+```json
+{
+  "agent_id": "rhns-research-worker",
+  "property": {
+    "street_address": "ADDRESS_OBSERVED_IN_A_PERMITTED_SOURCE",
+    "city": "Cleburne", "state": "TX", "postal_code": "76033",
+    "county": "Johnson", "property_type": "single_family",
+    "asking_price": "0.00", "source_url": "https://johnsoncad.com/property-search/",
+    "observed_at": "2026-11-26T18:00:00-06:00"
+  },
+  "research_rationale": "Explain provenance, independent corroboration still needed."
+}
+```
+
+This JSON is a **schema illustration, not a genuine property listing or lead**. Replace every placeholder with independently observed, licensed or permitted facts. A proposal stays `pending` until a separate human decision. No automated agent connection has been enabled at the RHNS end.
+
+## Optional Stripe inbound receipt verification
+
+Set `REOS_STRIPE_WEBHOOK_SECRET` using your Stripe endpoint's signing secret. Register the route in your verified Stripe account; explicitly configure `payment_intent.succeeded` delivery and attach metadata `reos_product=real_estate_intelligence` to REOS-specific PaymentIntents at creation time in the **approved existing billing platform**. REOS **does not create PaymentIntents or checkout links**. It validates Stripe-Signature (HMAC SHA-256 + 5-minute tolerance), checks `livemode=true`, and deduplicates both Stripe event and PaymentIntent IDs. No funds or financial outcomes exist until real signed events arrive. Refunds, disputes, settlement, fees and tax reporting are out of scope; do not equate gross events with earnings.
+
+## Local CSV ingestion
 
 ```bash
-reos --db ./data/reos.sqlite import-csv /path/to/your_verified_properties.csv
-reos --db ./data/reos.sqlite list-cases
+reos --db ./data/reos.sqlite import-csv /path/to/permitted_properties.csv
+reos --db ./data/reos.sqlite portfolio
+reos --db ./data/reos.sqlite due-tasks
 reos --db ./data/reos.sqlite verify-audit
 ```
 
-Expected UTF-8 CSV header:
+CSV headers: `street_address,city,state,postal_code,county,property_type,asking_price,source_url,observed_at,operator_notes` (operator_notes optional). Only supply legally acquired data; do not include seller PII or bulk scraped personal contacts.
 
-```csv
-street_address,city,state,postal_code,county,property_type,asking_price,source_url,observed_at,operator_notes
-```
+## Deployment readiness and limitations
 
-The file may have fewer columns only if `operator_notes` is omitted. Valid `property_type`: `single_family`,
-`multi_family`, `land`, `commercial`; timestamps must include time-zone offset. Only import data you are
-permitted to use; do not add owner names, phone numbers, protected demographic attributes, or private data.
-No fictitious market values or sample leads are supplied.
-
-## Underwriting contract
-
-`POST /v1/cases/{id}/underwrite` requires the following JSON fields:
-`arv`, `repairs`, `closing_costs`, `holding_costs`, `financing_costs`, `reserve`,
-`buyer_target_profit`, `proposed_assignment_fee`, and `selling_cost_rate`.
-Optionally set `heuristic_arv_fraction` (defaults to `0.70`). Money inputs are decimal strings in USD.
-
-`formula_mao = ARV × (1 − selling_cost_rate) − repairs − closing − holding − financing − reserve − buyer_target_profit − assignment_fee`.
-`heuristic_mao = ARV × heuristic_arv_fraction − repairs`.
-`maximum_allowable_offer = max(0, min(max(0, formula_mao), max(0, heuristic_mao)))`.
-
-Both are **screening heuristics, not appraisals or guaranteed returns**. Buyer acquisition and seller consent
-cannot be inferred from a match. Assumptions must come from dated, reviewed evidence before research approval.
-Read [docs/operations.md](docs/operations.md) before making any investment decisions.
+See [operations runbook](docs/operations.md) and [system architecture](docs/architecture.md). This is runnable engineering functionality, **not** evidence of actual properties acquired, buyers committed, contracts signed, funds collected or SOC 2 compliance.

@@ -6,7 +6,7 @@ from garcar_reos.api import create_app
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("REOS_API_KEY", "operator-key-for-testing")
-    monkeypatch.setenv("REOS_APPROVER_KEY", "separate-approver-key")
+    monkeypatch.setenv("REOS_APPROVER_KEY", "separate-approver-key-in-testing")
     monkeypatch.setenv("REOS_DB_PATH", str(tmp_path / "api.sqlite"))
     with TestClient(create_app()) as c:
         yield c
@@ -35,6 +35,6 @@ def test_source_to_underwriting_to_research_gate(client):
     decision=dict(decision="approve_research", reviewer="Operations lead",
                   rationale="Operator checked all required research evidence")
     assert client.post(f"/v1/cases/{uid}/research-decision",json=decision,headers=headers).status_code==403
-    headers["x-approver-key"]="separate-approver-key"
+    headers["x-approver-key"]="separate-approver-key-in-testing"
     assert client.post(f"/v1/cases/{uid}/research-decision",json=decision,headers=headers).status_code==409
     assert client.get("/v1/audit/verify",headers=headers).json()["valid"]
